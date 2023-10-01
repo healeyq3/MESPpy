@@ -1,0 +1,1 @@
+This folder will house the estimation program from Kurt's quadratic assignment problem paper *Solving Large quadratic assignment proglems on computational grids*
