@@ -1,9 +1,7 @@
 # Maximum-Entropy Sampling
 
-Updated 9/30/23
+Updated 10/12/23
 
-To be filled in.
+I have officially started rebuilding the Branch and Bound framework, which now incorporates the subproblem shrinking code. This logic is primarily held in the Node class (node.py file). Tomorrow (Friday 10/13) will be entirely focused on finishing this initial build out, hopefully concluding with a test.
 
-Note that I have not yet refactored/reincorporated the Branch-and-Bound framework - I will start incrementally adding that, but most likely will not finish it until this Wednesday 10/04. Along with that I'll work on the problem size shrinking code, which I do think I should handle since it is intrisically tied to the tree behavior. I'm hoping that between the repo refactoring, code streamlining, and addition of the subproblem reduction we will see a good performance jump. From there it will be easy to start playing with branching rules and building out the problem size estimation that Kurt uses.
-
-Please see test.py for an example of the current functionality.
+The localsearch still works, but do not try to run anything related to the B&B framework - it is not complete.

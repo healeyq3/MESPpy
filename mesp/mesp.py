@@ -1,8 +1,7 @@
-from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero)
-from numpy.linalg import (eigh, matrix_rank)
-from math import log
+from numpy import matrix
+from numpy.linalg import matrix_rank
 
-from mesp.utilities.matrix_computations import generate_factorizations
+from mesp.utilities.matrix_computations import (generate_factorizations, obj_f) 
 from mesp.approximation.localsearch import localsearch
 
 class Mesp:
@@ -17,34 +16,9 @@ class Mesp:
 
         self.V, self.Vsquare, self.E = generate_factorizations(self.C, self.n, self.d)
 
-    def obj_f(self, x):
-        """
-        Objective function of the MESP
-
-        :param x: The decision variables
-        """
-        val = 0.0
-        sel = flatnonzero(x)
-
-        for i in sel:
-            val += self.Vsquare[i]
-
-        r = matrix_rank(val)
-        [a, b] = eigh(val)
-        a = a.real # eigenvalues
-        b = b.real # eigenvectors
-
-        sorted_a = sorted(a, reverse=True) # sort eigenvalues in decreasing order
-
-        f = 1.0
-        for i in range(r):
-            f *= sorted_a[i]
-        
-        if f <= 0:
-            print("Singular Matrix")
-            return 0
-
-        return log(f)
+    def return_objective_value(self):
+        pass
+        # return obj_f()
     
     def solve_approximate(self, s):
         return localsearch(self.V, self.E, self.n, self.d, s)

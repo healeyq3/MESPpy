@@ -30,6 +30,34 @@ def generate_factorizations(C, n, d):
     return V, Vsquare, E
 
 
+def obj_f(x, Vsquare):
+    """
+    Objective function of the MESP
+    """
+
+    val = 0.0 # give a more appropriate initial value?
+    sel = flatnonzero(x)
+
+    for i in sel:
+        val += Vsquare[i]
+
+    r = matrix_rank(val)
+    [a, b] = eigh(val)
+    a = a.real # eigenvalues
+    b = b.real # eigenvectors
+
+    sorted_a = sorted(a, reverse=True) # sort eigenvalues in decreasing order
+
+    f = 1.0
+    for i in range(r):
+        f *= sorted_a[i]
+    
+    if f <= 0:
+        print("Singular Matrix")
+        return 0
+
+    return log(f)
+
 def upd_inv_add(V, E, X, Xs, opti):
     """Update the inverse matrix by adding a rank-one matrix"""
     Y = 0.0
