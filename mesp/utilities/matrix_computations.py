@@ -1,4 +1,4 @@
-from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero)
+from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero, setdiff1d, arange)
 from numpy.linalg import (eigh, matrix_rank)
 from scipy.linalg import svd
 from math import log
@@ -139,4 +139,21 @@ def findopt(V, E, X, Xs, i, indexN,n,val):
     val = val+ log(maxf)-log(xval[i])
        
     return Y, Ys, opti, val
+
+def generate_schur_complement_iterative(A, n, selected):
+    """
+    Assumes len(selected) == 1
+    """
+    remaining_indices = setdiff1d(arange(n), selected)
+    A_shrunk = A[remaining_indices][:, remaining_indices]
+    A_left = A[remaining_indices][:, selected]
+    selected_val = A[selected, selected]
+    if selected_val == 0:
+        A_selected_inv = 0
+    else:
+        A_selected_inv = 1 / selected_val
+    A_right = A[selected][:, remaining_indices]
+
+    return A_shrunk - A_left @ (A_selected_inv * A_right)
+
 

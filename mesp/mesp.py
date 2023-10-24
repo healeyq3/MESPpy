@@ -3,6 +3,7 @@ from numpy.linalg import matrix_rank
 
 from mesp.utilities.matrix_computations import (generate_factorizations, obj_f) 
 from mesp.approximation.localsearch import localsearch
+from mesp.tree import tree
 
 class Mesp:
     
@@ -22,4 +23,14 @@ class Mesp:
     
     def solve_approximate(self, s):
         return localsearch(self.V, self.E, self.n, self.d, s)
+    
+    def solve(self, s):
+        z_hat = self.solve_approximate(s)[0]
+        milp = tree.Tree(self.n, self.d, s, self.C, z_hat, timeout=60)
+        solved, opt_val, time, iterations, gap, num_updates = milp.solve_tree()
+        return solved, opt_val, time, iterations, gap, z_hat, num_updates
+        # if solved:
+        #     return solved, opt_val, time, iterations, gap
+        # else:
+        #     return False, False, False, False, False
 
