@@ -1,7 +1,60 @@
 import datetime
-from numpy import (array, argsort)
+from numpy import (array, argsort, add)
 
 from mesp.bounding.frankwolfe import (frankwolfe, alter_fw)
+from mesp.approximation.localsearch import localsearch
+from mesp.utilities.grad import grad_fix
+
+def frankwolfelocal(V, Vsquare, E, n, d, s): 
+    
+    start = datetime.datetime.now()
+    
+    # run local search
+    LB, x, ltime = localsearch(V, E, n, d, s)
+    Obj_f = LB
+    # print("The lower bound at current node is", Obj_f)
+ 
+    gamma_t = 0.0  
+    t = 0.0
+    mindual = 1e+10
+    dual_gap = 1 # duality gap
+    Obj_f = 1 # primal value
+    alpha = 1e-5 # target accuracy
+    
+    cut_gap = 0.0 # the gap to derive optimality cuts    
+    xsol = [2]*n
+    S1 = []  # store selected points
+    S0 = []  # store discarded points    
+        
+    while(dual_gap/(Obj_f+dual_gap) > alpha):
+        Obj_f, subgrad, y, dual_gap, fixzero, fixone = grad_fix(V, Vsquare, S1, S0, x, s, d)
+        
+        t = t + 1
+        gamma_t = 1/(t+2) # step size
+        
+        x = [(1-gamma_t)*x_i for x_i in x] 
+        y = [gamma_t*y_i for y_i in y]
+        x = add(x,y).tolist() # update x
+        mindual = min(mindual, Obj_f+dual_gap) # update the upper bound
+        
+        #print('primal value = ', Obj_f, ', duality gap = ', dual_gap)
+        
+        ## derive optimality cuts
+        cut_gap =  Obj_f + dual_gap - LB
+        for i in range(n):
+            if cut_gap < fixzero[i]:  # restricted DDF < DDF if i-th point is selected; Hence, discard i-th point                
+                xsol[i] = 0
+            if cut_gap < fixone[i]:  # restricted DDF < DDF if i-th point is discarded; Hence, select i-th point                 
+                xsol[i] = 1
+        
+        S0 = [i for i in range(n) if xsol[i] == 0] # discarded points
+        S1 = [i for i in range(n) if xsol[i] == 1] # selected points
+
+    
+    end = datetime.datetime.now()
+    time = (end-start).seconds
+
+    return  S1, S0, fixone, fixzero, cut_gap, x, LB
 
 def cut_gap_fixing(V, Vsquare, E, n, d, s):
     cut_gap, v, w, x, LB = frankwolfe(V, Vsquare, E, n, d, s, varfix=True)
@@ -27,8 +80,8 @@ def cut_gap_fixing(V, Vsquare, E, n, d, s):
 def varfix(V, Vsquare, E, n, d, s):
     start = datetime.datetime.now()
 
-    S1, S0, fixone, fixzero, init_cut_gap, cxsol, fval = cut_gap_fixing(V, Vsquare, E, n, d, s)
-     
+    S1, S0, fixone, fixzero, init_cut_gap, cxsol, fval = frankwolfelocal(V, Vsquare, E, n, d, s)
+
     #### derive cut (b) ####
     indexS = []
     indexT = S0
@@ -41,7 +94,6 @@ def varfix(V, Vsquare, E, n, d, s):
             indexS= []
             indexS = S1
             indexS.append(sortinx[i]) # suppose select i-th point 
-            
             cutgap = alter_fw(V, Vsquare, E, fval, indexS, indexT, n, d, s)
             # print(i, cutgap)
             if cutgap < 0: # restricted DDF < DDF if i-th point is selected; Hence, discard i-th point

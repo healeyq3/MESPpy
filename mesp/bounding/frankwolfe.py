@@ -122,7 +122,7 @@ def res_frankwolfe(V, Vsquare, S1, S0, old_x, node_i, node_val, n, d, s):
 def alter_fw(V, Vsquare, E, fval, S1, S0, n, d, s): 
     
     # run local search
-    Obj_f, x, ltime = localsearch(V, E, S1, S0, n, d, s)
+    Obj_f, x, ltime = localsearch(V, E, n, d, s, S1, S0)
     # print("The lower bound at current node is", Obj_f)
  
     gamma_t = 0.0  

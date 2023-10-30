@@ -123,8 +123,8 @@ def grad_fix(V, Vsquare, S1, S0, x,s,d):
         val = val+x[i]*Vsquare[i]
         
     [a,b] = eigh(val) 
-    a = a.real # engivalues
-    b = b.real # engivectors
+    a = a.real # eigenvalues
+    b = b.real # eigenvectors
 
     sorted_a = sorted(a, reverse=True)     
     k,nu = find_k(sorted_a,s,d)
