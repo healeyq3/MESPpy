@@ -263,3 +263,5 @@ class Tree:
         else:
             solved = False 
         return solved, self.z_lb, self.total_time, self.total_iterations, self.gap, num_updates
+    
+    ##### TREE ATTRIBUTES #####

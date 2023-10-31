@@ -1,9 +1,10 @@
 from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero, setdiff1d, arange)
-from numpy.linalg import (eigh, matrix_rank)
+from numpy.linalg import (eigh, matrix_rank, det, inv)
 from scipy.linalg import svd
 from math import log
+from typing import Tuple, List
 
-def generate_factorizations(C, n, d):
+def generate_factorizations(C: matrix, n: int, d: int):
     """Generates the V, Vsquare, and E matrices required for a MESP problem"""
     
     _, s, V = svd(C)
@@ -30,7 +31,7 @@ def generate_factorizations(C, n, d):
     return V, Vsquare, E
 
 
-def obj_f(x, Vsquare):
+def obj_f(x: array, Vsquare: List[matrix]):
     """
     Objective function of the MESP
     """
@@ -58,7 +59,7 @@ def obj_f(x, Vsquare):
 
     return log(f)
 
-def upd_inv_add(V, E, X, Xs, opti):
+def upd_inv_add(V: matrix, E: matrix, X, Xs, opti):
     """Update the inverse matrix by adding a rank-one matrix"""
     Y = 0.0
     Ya = 0.0
@@ -75,7 +76,7 @@ def upd_inv_add(V, E, X, Xs, opti):
     
     return Y, Ys
 
-def upd_inv_minus(V, X, Xs, opti):
+def upd_inv_minus(V: matrix, X, Xs, opti):
     """Update the inverse matrix by subtracting a rank-one matrix"""    
     Y = 0.0
     Ya = 0.0
@@ -93,7 +94,7 @@ def upd_inv_minus(V, X, Xs, opti):
     return Y, Ys
 
 
-def srankone(V, E, X, Xs, indexN, n, val):
+def srankone(V: matrix, E: matrix, X, Xs, indexN, n, val):
     """Rank one update for greedy"""
     opti = 0.0
     Y = 0.0
@@ -116,7 +117,7 @@ def srankone(V, E, X, Xs, indexN, n, val):
     
     return Y,Ys,opti,val 
 
-def findopt(V, E, X, Xs, i, indexN,n,val):
+def findopt(V: matrix, E: matrix, X, Xs, i, indexN,n,val):
     """Rank one update for local search"""
     Y=0.0
     Ys=0.0
@@ -140,14 +141,19 @@ def findopt(V, E, X, Xs, i, indexN,n,val):
        
     return Y, Ys, opti, val
 
-def generate_schur_complement_iterative(A, n, selected):
+def fix_out(C: matrix, S0: List[int]):
+    n = C.shape[0]
+    remaining_indices = setdiff1d(arange(n), S0)
+    return C[remaining_indices][:, remaining_indices]
+
+def generate_schur_complement_iterative(A: matrix, n: int, selected: List[int]):
     """
     Assumes len(selected) == 1
     """
     remaining_indices = setdiff1d(arange(n), selected)
     A_shrunk = A[remaining_indices][:, remaining_indices]
     A_left = A[remaining_indices][:, selected]
-    selected_val = A[selected, selected]
+    selected_val = A[selected, selected] # index in typical way -> inv method should still work
     if selected_val == 0:
         A_selected_inv = 0
     else:
@@ -155,5 +161,18 @@ def generate_schur_complement_iterative(A, n, selected):
     A_right = A[selected][:, remaining_indices]
 
     return A_shrunk - A_left @ (A_selected_inv * A_right)
+
+def generate_schur_complement(A: matrix, n: int, selected: List[int]):
+    remaining_indices = setdiff1d(arange(n), selected)
+    A_shrunk = A[remaining_indices][:, remaining_indices]
+    A_left = A[remaining_indices][:, selected]
+    selected_val = A[selected, selected]
+    A_right = A[selected][:, remaining_indices]
+    if det(selected_val) == 0:
+        return A_shrunk
+    else:
+        A_selected_inv = inv(selected_val)
+        return A_shrunk - A_left @ A_selected_inv @ A_right
+
 
 

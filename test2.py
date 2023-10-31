@@ -29,5 +29,5 @@ for s in test_vals:
     solved, opt_val, time, iterations, gap, z_hat, num_updates = mesp1.solve(s)
     df_results.loc[loc] = np.array([s, solved, time, iterations, gap, z_hat, opt_val, num_updates])
     loc += 1
-    df_results.to_csv('test_results1024-2.csv', index=False)
+    df_results.to_csv('test_results1030-2.csv', index=False)
     

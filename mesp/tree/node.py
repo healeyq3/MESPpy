@@ -2,7 +2,7 @@ from typing import List
 from numpy import (matrix, setdiff1d, arange, argmax, concatenate)
 from numpy.linalg import slogdet
 
-from mesp.utilities.matrix_computations import (generate_factorizations, generate_schur_complement_iterative)
+from mesp.utilities.matrix_computations import (generate_factorizations, generate_schur_complement_iterative, fix_out)
 from mesp.bounding.frankwolfe import frankwolfe
 
 class Node:
@@ -124,6 +124,7 @@ class IterativeNode:
         self.Vsquare = Vsquare
         self.E = E
 
+        # MAke the following more efficient/less gross looking
         if fixed_in and id != 1:
             self.S0 = []
             self.S1 = [branch_idx]
@@ -170,21 +171,16 @@ class IterativeNode:
         self.w_branch = None
 
     def compute_subproblem_bound(self) -> float:
-        print(f"\nn_curr = {self.n_curr}, s_curr = {self.s_curr}") # DEBUG
         if len(self.S0) > 0:
-            # self.C_hat, self.V_hat, self.Vsquare_hat, self.E_hat = self.fix_out_inefficient()
-            self.C_hat = self.fix_out_C()
+            self.C_hat = fix_out(self.C, self.S0)
             self.V_hat, self.Vsquare_hat, self.E_hat = generate_factorizations(self.C_hat, self.n_curr, self.d_curr)
+            # self.C_hat, self.V_hat, self.Vsquare_hat, self.E_hat = self.fix_out_full()
         elif len(self.S1) > 0:
             self.C_hat = generate_schur_complement_iterative(self.C, self.n, self.S1)
             self.V_hat, self.Vsquare_hat, self.E_hat = generate_factorizations(self.C_hat, self.n_curr, self.d_curr)
             Cff = self.C[self.S1][:, self.S1]
             self.scale_factor += slogdet(Cff)[1]
-        # print(f"E: {self.E}") # DEBUG
-        # print(f"V: {self.V}") # DEBUG
-        # print(f"n_curr: {self.n_curr}") # DEBUG
-        # print(f"d_curr: {self.d_curr}") # DEBUG
-        # print(f"s_curr: {self.s_curr}") # DEBUG
+
         z, x, time, w, v = frankwolfe(self.V_hat, self.Vsquare_hat, self.E_hat, self.n_curr, self.d_curr, self.s_curr)
 
         self.relaxed_z = self.scale_factor + z
@@ -212,23 +208,30 @@ class IterativeNode:
         
         return time
 
+    ### SEE HERE ###
 
-    def fix_out(self):
+    # Test the following function
+
+    def fix_out_full(self):
         # print(self.S0) # DEBUG
         remaining_indices = setdiff1d(arange(self.n), self.S0)
         # print(f"Remaining_indices = {remaining_indices}") # DEBUG
         C_hat = self.C[remaining_indices][:, remaining_indices]
         V_hat = self.V[remaining_indices][:, remaining_indices]
-        Vsquare_hat = [self.Vsquare[i] for i in remaining_indices]
+        Vsquare_hat = [self.Vsquare[i][remaining_indices][:, remaining_indices] for i in remaining_indices]
         E_hat = self.E[remaining_indices][:, remaining_indices]
 
         return (C_hat, V_hat, Vsquare_hat, E_hat)
     
-    def fix_out_C(self):
-        remaining_indices = setdiff1d(arange(self.n), self.S0)
-        # print(f"Remaining_indices = {remaining_indices}") # DEBUG
-        C_hat = self.C[remaining_indices][:, remaining_indices]
-        return C_hat
+    # The following is deprecated (moved to matrix_computations)
+    
+    # def fix_out_C(self):
+    #     remaining_indices = setdiff1d(arange(self.n), self.S0)
+    #     # print(f"Remaining_indices = {remaining_indices}") # DEBUG
+    #     C_hat = self.C[remaining_indices][:, remaining_indices]
+    #     return C_hat
+
+    ### ###
     
     def compute_branch_index(self):
         if self.w != None and self.v != None:

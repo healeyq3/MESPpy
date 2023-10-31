@@ -1,7 +1,7 @@
 # Maximum-Entropy Sampling
 
-Updated 10/12/23
+Updated 10/30/23
 
-I have officially started rebuilding the Branch and Bound framework, which now incorporates the subproblem shrinking code. This logic is primarily held in the Node class (node.py file). Tomorrow (Friday 10/13) will be entirely focused on finishing this initial build out, hopefully concluding with a test.
+See test2.py - framework is solving instance s=10 with (from as far as I'm aware) fastest runtime seen. 
 
-The localsearch still works, but do not try to run anything related to the B&B framework - it is not complete.
+I just finished rewriting the variable fixing code. Will finish incorporating that with tree solver tomorrow, and then will run experiments for $s \in \{10, 20, 30, 40, 50\}$.
