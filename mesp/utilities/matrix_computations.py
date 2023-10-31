@@ -4,7 +4,7 @@ from scipy.linalg import svd
 from math import log
 from typing import Tuple, List
 
-def generate_factorizations(C: matrix, n: int, d: int):
+def generate_factorizations(C: matrix, n: int, d: int) -> Tuple[matrix, List[matrix], matrix]:
     """Generates the V, Vsquare, and E matrices required for a MESP problem"""
     
     _, s, V = svd(C)
@@ -31,7 +31,7 @@ def generate_factorizations(C: matrix, n: int, d: int):
     return V, Vsquare, E
 
 
-def obj_f(x: array, Vsquare: List[matrix]):
+def obj_f(x: array, Vsquare: List[matrix]) -> float:
     """
     Objective function of the MESP
     """
@@ -166,7 +166,7 @@ def generate_schur_complement(A: matrix, n: int, selected: List[int]):
     remaining_indices = setdiff1d(arange(n), selected)
     A_shrunk = A[remaining_indices][:, remaining_indices]
     A_left = A[remaining_indices][:, selected]
-    selected_val = A[selected, selected]
+    selected_val = A[selected][:, selected]
     A_right = A[selected][:, remaining_indices]
     if det(selected_val) == 0:
         return A_shrunk

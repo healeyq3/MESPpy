@@ -8,8 +8,8 @@ from mesp.tree.node import IterativeNode
 
 class Tree:
 
-    def __init__(self, n: int, d: int, s: int, C: matrix, optimal_approx: float, S1: List[int] = [], S0: List[int] = [],
-                 timeout: float = 0, branch_idx_constant: float = 0.5, epsilon: float = 1e-6) -> None:
+    def __init__(self, n: int, d: int, s: int, C: matrix, optimal_approx: float, scale_factor: float = 0.0,
+                 branch_idx_constant: float = 0.5, epsilon: float = 1e-6) -> None:
         """
         Parameters
         ----------
@@ -23,12 +23,6 @@ class Tree:
             The covariance matrix associated with a MESP instance
         optimal_approx : float
             The best known lower bound for the DDF problem with a given n and s
-        S1: List[int], optional
-            The measurements which should be selected to maximize information
-        S0 : List[int], optional
-            The measurements which should not be selected to maximize information
-        timeout : number, optional
-            Number of minutes the solve_tree function will be allowed to run before timing out. By default the timeout will not be set.
         branching_idx_constant: float, optional
             When a subproblem needs to be branched, the chosen branching index will follow argmin|x_i - branching_idx_val| such that the index has
             not already been branched and is not binary (if branching_idx_val == 0 or 1)
@@ -46,8 +40,8 @@ class Tree:
         if s >= n:
             raise ValueError('The number of new sensors (s) must be less than the number of potential placement locations. n - s:', n - s)
         
-        if not isinstance(timeout, numbers.Number) or timeout < 0:
-            raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value greater than 0.") 
+        # if not isinstance(timeout, numbers.Number) or timeout < 0:
+        #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value greater than 0.") 
         
         if not isinstance(optimal_approx, numbers.Number):
             raise ValueError(f"{optimal_approx} is an improper \"optimal_approx\" parameter for a tree initialization. Please pass in a numeric value.") 
@@ -55,8 +49,8 @@ class Tree:
         if not isinstance(branch_idx_constant, numbers.Number) or branch_idx_constant > 1 or branch_idx_constant < 0:
             raise ValueError(f"{branch_idx_constant} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value in [0, 1].")
 
-        if not isinstance(timeout, numbers.Number):
-            raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value.") 
+        # if not isinstance(timeout, numbers.Number):
+        #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value.") 
         ###   ####
 
         ### Attribute Assignments ###
@@ -73,7 +67,7 @@ class Tree:
         self.z_lb = optimal_approx - epsilon
         
         # Parameter assignments
-        self.TIMEOUT = timeout
+        self.TIMEOUT = 0
         self.EPS = epsilon
 
         # Tree properties
@@ -88,7 +82,7 @@ class Tree:
         # Begin Queue and Assign Node Class attributes
         IterativeNode.branch_idx_constant = branch_idx_constant
 
-        root = IterativeNode(0, 1, 1, C, V, Vsquare, E, s, 0, False) # note the branch index and fixed_in params are ignored for root
+        root = IterativeNode(0, 1, 1, C, V, Vsquare, E, s, 0, False, scale_factor=scale_factor) # note the branch index and fixed_in params are ignored for root
         self.open_nodes.append(root)
         self.delta_criterion = None
 
@@ -108,7 +102,7 @@ class Tree:
 
     ### Begin methods used for solving tree ###
 
-    def solve_tree(self):
+    def solve_tree(self, timeout: float = None):
 
         solve_time_start = datetime.datetime.now()
 
