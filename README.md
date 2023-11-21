@@ -14,13 +14,13 @@ We'll take four passes at explaining this problem.
 
 **More mathematically,** "in the maximum entropy sampling problem we are looking to find a maximum (log-)determinant principal submatrix $C_{S, S}$ of a given order $s$ from an input positive-semidefinite matrix $C$ of order $n > s$." [[1]](#1)
 
-**Most thoroughly,** suppose we have $n$ random variables generated from a multivariate elliptical (but for our purposes, assume Gaussian) distribution. Given the covariance matrix, $C \in \mathbb{S}_{+}^{n}$, associated with these random variables, the maximum entropy sampling problem seeks to find, for some integer $ 0 < s \le \min\{\textbf{rank}\,C, n - 1\}$, the subset of random variables, $S$ such that $\left| S  \right| = s$, which maximizes the log determinant of $C$ (this is equivalent to selecting the subset of variables with the greatest differential entropy).
+**Most thoroughly,** suppose we have $n$ random variables generated from a multivariate elliptical (but for our purposes, assume Gaussian) distribution. Given the covariance matrix, $C \in \mathbb{S}_{+}^{n}$, associated with these random variables, the maximum entropy sampling problem seeks to find, for some integer $ 0 < s \le \min \{ \textbf{rank}\, C, n - 1 \}$, the subset of random variables, $S$ such that $\left| S  \right| = s$, which maximizes the log determinant of $C$ (this is equivalent to selecting the subset of variables with the greatest differential entropy).
 
 **Most mathematically,** the MESP is the following combinatorial optimization problem
 
 $$
 \begin{align*}
-\displaystyle\text{maximize} \left\{ \textbf{ldet}\,C_{S, S} : S \subseteq [n], \left| S \right| = s \right\}.
+\text{maximize} \left\{ \textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \right \}.
 \end{align*}
 $$
 
@@ -51,7 +51,7 @@ MESPpy aims to push the boundaries of the maximum entropy sampling problem in th
 
 **Contributors.**
 This work was conducted under [Dr. Weijun Xie's](https://sites.google.com/site/weijunxieor/home) supervision and was contributed to by PhD candidate Yongchun Li and undergraduate student Quill Healey. Specifically, Yongchun is responsible for the approximation and bounding algorithms, which she and Dr. Xie developed in ["Best Best Principal Submatrix Selection for the Maximum Entropy Sampling Problem:
-Scalable Algorithms and Performance Guarantees"](https://arxiv.org/pdf/2001.08537.pdf) with the associated [codebase](https://github.com/yongchunli-13/Approximation-Algorithms-for-MESP). Quill is responsible for the creation of this declarative language driven repository, the branch and bound framework, and the related experimentation features (of course with the guidance and help of both Dr. Xie and Yongchun). 
+Scalable Algorithms and Performance Guarantees"](https://arxiv.org/pdf/2001.08537.pdf) with the associated [codebase](https://github.com/yongchunli-13/Approximation-Algorithms-for-MESP). Quill is responsible for the creation of this declarative language driven repository, the branch and bound framework, and the related experimentation features (of course, with the guidance and help of both Dr. Xie and Yongchun). 
 
 ## Using MESPpy
 
