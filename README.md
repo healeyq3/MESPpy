@@ -18,15 +18,16 @@ We'll take four passes at explaining this problem.
 
 **Most mathematically,** the MESP is the following combinatorial optimization problem
 
-$$
+```math
 \begin{align*}
-\text{maximize} \quad \{\textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s\}.
+\text{maximize} \; \left\{\textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \right\}.
 \end{align*}
-$$
+```
 
 
 ### What MESP is NOT
 We want to emphasize the distinction between the **principle of maximum entropy** (equivalently, the *entropy maximization problem*) and the **maximum entropy sampling problem**. Mathematically, the former can be expressed as 
+
 ```math
 \begin{equation*}
 \begin{array}{lll}
@@ -35,7 +36,7 @@ We want to emphasize the distinction between the **principle of maximum entropy*
 & \mathbf{1}^Tx = 1,
 \end{array}
 \end{equation*}
-``````
+```
 
 while we already stated the MESP formulation above. We felt the need to explicitly state the difference between the two problems as clearly the entropy maximization problem is convex (this particular example is found in [[2]](#2)), and thus can already be formulated and solved using CVXPY and some backend solver.
 
