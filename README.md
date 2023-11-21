@@ -20,7 +20,7 @@ We'll take four passes at explaining this problem.
 
 $$
 \begin{align*}
-\text{maximize} \{ \textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \}.
+\text{maximize} \; \{ \textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \}.
 \end{align*}
 $$
 
