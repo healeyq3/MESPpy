@@ -14,13 +14,13 @@ We'll take four passes at explaining this problem.
 
 **More mathematically,** "in the maximum entropy sampling problem we are looking to find a maximum (log-)determinant principal submatrix $C_{S, S}$ of a given order $s$ from an input positive-semidefinite matrix $C$ of order $n > s$." [[1]](#1)
 
-**Most thoroughly,** suppose we have $n$ random variables generated from a multivariate elliptical (but for our purposes, assume Gaussian) distribution. Given the covariance matrix, $C \in \mathbb{S}_{+}^{n}$, associated with these random variables, the maximum entropy sampling problem seeks to find, for some integer $ 0 < s \le \min \{ \textbf{rank}\, C, n - 1 \}$, the subset of random variables, $S$ such that $\left| S  \right| = s$, which maximizes the log determinant of $C$ (this is equivalent to selecting the subset of variables with the greatest differential entropy).
+**Most thoroughly,** suppose we have $n$ random variables generated from a multivariate elliptical (but for our purposes, assume Gaussian) distribution. Given the covariance matrix, $C \in \mathbb{S}_{+}^{n}$, associated with these random variables, the maximum entropy sampling problem seeks to find, for some integer $0 < s \le \min \{ \textbf{rank}\, C, n - 1 \}$, the subset of random variables, $S$ such that $\left| S  \right| = s$, which maximizes the log determinant of $C$ (this is equivalent to selecting the subset of variables with the greatest differential entropy).
 
 **Most mathematically,** the MESP is the following combinatorial optimization problem
 
 $$
 \begin{align*}
-\text{maximize} \left\{ \textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \right \}.
+\text{maximize} \{ \textbf{ldet} \, C_{S, S} : S \subseteq [n], \left| S \right| = s \}.
 \end{align*}
 $$
 
