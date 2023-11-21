@@ -48,9 +48,7 @@ class Tree:
         
         if not isinstance(branch_idx_constant, numbers.Number) or branch_idx_constant > 1 or branch_idx_constant < 0:
             raise ValueError(f"{branch_idx_constant} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value in [0, 1].")
-
-        # if not isinstance(timeout, numbers.Number):
-        #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value.") 
+        
         ###   ####
 
         ### Attribute Assignments ###
@@ -61,10 +59,10 @@ class Tree:
         self.C = C
         V, Vsquare, E = generate_factorizations(C, n, d) 
 
-        self.z_hat = optimal_approx
+        self.z_hat = optimal_approx + scale_factor
         self.z_lub = float('inf') # least upper bound
         self.z_ub = float('inf') # upper bound
-        self.z_lb = optimal_approx - epsilon
+        self.z_lb = optimal_approx + scale_factor - epsilon
         
         # Parameter assignments
         self.TIMEOUT = 0
@@ -77,6 +75,8 @@ class Tree:
 
         self.open_nodes = []
         self.updated_lb_iterations = [] # iterations which corresponded to z_lb being updated
+        self.dual_branched = [] # iterations which branched using the dual variables
+        self.num_updates = 0
         self.optimal_node = None 
 
         # Begin Queue and Assign Node Class attributes
@@ -95,7 +95,8 @@ class Tree:
         self.log = ""
         self.total_time = 0 # total time it takes to solve the tree
         self.total_solve_time = 0 # total time it takes to compute the bounds
-        self.total_iterations = 0
+        self.solve_times = []
+        self.total_iterations = 1
         self.num_solved = 0 # the number of times a subproblem's bound had to be computed
     
     ### End of Constructor ###
@@ -103,6 +104,9 @@ class Tree:
     ### Begin methods used for solving tree ###
 
     def solve_tree(self, timeout: float = None):
+
+        if timeout != None:
+            self.TIMEOUT = timeout
 
         solve_time_start = datetime.datetime.now()
 
@@ -114,6 +118,7 @@ class Tree:
 
             if not node.is_solved:
                 solve_time = self.solve_node(node=node)
+                self.solve_times.append(solve_time)
                 self.total_solve_time += solve_time
             
             self.evaluate_node(node, solve_time_start)
@@ -142,6 +147,8 @@ class Tree:
     
     def evaluate_node(self, node: IterativeNode, runtime_start):
         
+        # Will need to make parent node class 
+
         z = node.relaxed_z
         is_integral = node.is_integral
 
@@ -149,12 +156,13 @@ class Tree:
             self.z_lb = z
             self.optimal_node = node
             self.updated_lb_iterations.append(self.total_iterations + 1)
+            self.num_updates += 1
         
         elif z > self.z_lb and not is_integral:
             curr_time = (datetime.datetime.now() - runtime_start).total_seconds()
 
             if self.TIMEOUT == 0 or self.TIMEOUT * 60 > curr_time:
-                # node.compute_branch_index()
+                node.compute_branch_index()
                 left_node, right_node, right_branch = self.branch(node)
                 self.add_nodes(left_node, right_node, right_branch)
             else:
@@ -164,17 +172,16 @@ class Tree:
     def branch(self, node: IterativeNode) -> Tuple[IterativeNode, IterativeNode, bool] :
         
         right_branch = None
+        if node.delta_i_max > self.delta_criterion: # use dual branching strategy
+            self.dual_branched.append(self.total_iterations)
+            branch_idx = node.i_max
+            if node.w_branch == True:
+                right_branch = True
+            else:
+                right_branch = False
+        else:
+            branch_idx = node.backup_branch_idx
 
-        # if node.delta_i_max > self.delta_criterion: # use dual branching strategy
-        #     branch_idx = node.i_max
-        #     if node.w_branch == True:
-        #         right_branch = True
-        #     else:
-        #         right_branch = False
-        # else:
-        #     branch_idx = node.backup_branch_idx
-
-        branch_idx = node.backup_branch_idx
         left_node = None
         right_node = None
 
@@ -220,12 +227,12 @@ class Tree:
             else:
                 self.left_node_first(left_node, right_node)
         elif right_branch:
-            if self.node_counter <= 3: # so for the root node
+            if self.num_updates < 1: 
                 self.right_node_first(left_node, right_node)
             else:
                 self.left_node_first(left_node, right_node)
         else:
-            if self.node_counter <= 3:
+            if self.num_updates < 1:
                 self.left_node_first(left_node, right_node)
             else:
                 self.right_node_first(left_node, right_node)
@@ -251,11 +258,13 @@ class Tree:
         #     return self.solved, self.z_lb, self.total_time, self.total_iterations, self.gap
         # else:
         #     return False
-        num_updates = len(self.updated_lb_iterations)
-        if num_updates > 0:
+        # num_updates = len(self.updated_lb_iterations)
+        if self.num_updates > 0:
             solved = True
         else:
             solved = False 
-        return solved, self.z_lb, self.total_time, self.total_iterations, self.gap, num_updates
+        return solved, self.z_lb, self.total_time, self.total_iterations, self.gap, self.num_updates
     
     ##### TREE ATTRIBUTES #####
+
+    # def dual_branches

@@ -15,6 +15,10 @@ class Node:
     n = None
     d = None
     s = None
+    choose_bound = None
+
+    # def __init__(self, parent_id: int, depth: int, C: matrix, discarded_points: List[int]=[], selected_points: List[int]=[],
+    #              )
 
     def __init__(self, parent_id: int, id: int, depth: int, discarded_points: List[int] = [],
                  selected_points: List[int] = [], fixed_in: bool = None) -> None:
@@ -104,7 +108,13 @@ class Node:
         
         return C_curr
 
+class NonShrinkingNode(Node):
+    pass
+    # def __init__(self, parent_id: int, depth: int, discarded_points: List[int]=[])
+
 class IterativeNode:
+
+    # What can be abstracted to a super node class? Then have iterative node and non-shrinking node
 
     branch_idx_constant = None
 
@@ -115,14 +125,14 @@ class IterativeNode:
         self.id = id
         self.depth = depth
 
-        self.n = C.shape[0]
-        self.d = self.n
-        self.s = s
-
         self.C = C
         self.V = V
         self.Vsquare = Vsquare
         self.E = E
+
+        self.n = C.shape[0]
+        self.d = self.n # holds so long as initially true
+        self.s = s
 
         # MAke the following more efficient/less gross looking
         if fixed_in and id != 1:
@@ -223,27 +233,41 @@ class IterativeNode:
 
         return (C_hat, V_hat, Vsquare_hat, E_hat)
     
-    # The following is deprecated (moved to matrix_computations)
-    
-    # def fix_out_C(self):
-    #     remaining_indices = setdiff1d(arange(self.n), self.S0)
-    #     # print(f"Remaining_indices = {remaining_indices}") # DEBUG
-    #     C_hat = self.C[remaining_indices][:, remaining_indices]
-    #     return C_hat
+    # def compute_branch_index(self):
+    #     if self.w != None and self.v != None:
+    #         print(f"w length: {len(self.w)}") # DEBUG
+    #         print(f"v length: {len(self.v)}") # DEBUG
+    #         self.i_max = argmax(concatenate((self.w, self.v)))
+    #         print(f"INDEX {self.i_max}")
+    #         if self.i_max < len(self.w):
+    #             self.delta_i_max = self.w[self.i_max]
+    #             print(f"In w branch. Delta: {self.delta_i_max}") # DEBUG
+    #             self.w_branch = True
+    #         else:
+    #             self.i_max = self.i_max - len(self.w)
+    #             self.delta_imax = self.v[self.i_max]
+    #             print(f"In v branch. Delta: {self.delta_i_max}") # DEBUG
+    #             self.w_branch = False
+    #     else:
+    #         self.delta_i_max = 0
 
-    ### ###
-    
     def compute_branch_index(self):
         if self.w != None and self.v != None:
-            self.i_max = argmax(concatenate((self.w, self.v)))
-            if self.i_max < len(self.w):
-                self.delta_i_max = self.w[self.i_max]
+            w_i_max = argmax(self.w)
+            w_max = self.w[w_i_max]
+            
+            v_i_max = argmax(self.v)
+            v_max = self.v[v_i_max]
+
+            if w_max > v_max:
+                self.i_max = w_i_max
+                self.delta_i_max = w_max
                 self.w_branch = True
             else:
-                self.i_max = self.i_max - len(self.w)
-                self.delta_imax = self.v[self.i_max]
+                self.i_max = v_i_max
+                self.delta_i_max = v_max
                 self.w_branch = False
         else:
             self.delta_i_max = 0
-
+            
 

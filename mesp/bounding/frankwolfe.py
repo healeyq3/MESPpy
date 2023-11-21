@@ -1,11 +1,13 @@
 import datetime
 from numpy import (add, argsort, array)
 
+from mesp.utilities.mesp_data import MespData
 from mesp.utilities.grad import (grad_fw as grad, grad_fix)
+from mesp.utilities.matrix_computations import (generate_factorizations)
 from mesp.approximation.localsearch import localsearch
 
 
-def frankwolfe(V, Vsquare, E, n, d, s, S1=[], S0=[], varfix=False): 
+def frankwolfe(C: MespData, s, varfix=False): 
     """
     Function frankwolfe needs input S1, S0, n, d and s, 
     Let subset $S_1$ denote selected points
@@ -14,6 +16,14 @@ def frankwolfe(V, Vsquare, E, n, d, s, S1=[], S0=[], varfix=False):
     """
     
     start = datetime.datetime.now()
+
+    n, d = C.n, C.d
+    S0, S1 = C.S0, C.S1
+
+    if C.V != None:
+        V, Vsquare, E = C.V, C.Vsquare, C.E
+    else:
+        V, Vsquare, E = generate_factorizations(C.C, n, d)
     
     # run local search
     LB, x, ltime = localsearch(V, E, n, d, s, S1, S0)

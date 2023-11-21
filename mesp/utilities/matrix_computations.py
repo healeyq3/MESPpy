@@ -1,10 +1,10 @@
-from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero, setdiff1d, arange)
-from numpy.linalg import (eigh, matrix_rank, det, inv)
+from numpy import (sqrt, matrix, array, dot, diag, eye, flatnonzero, setdiff1d, arange, ndarray, all)
+from numpy.linalg import (eigh, matrix_rank, det, inv, eigvals)
 from scipy.linalg import svd
 from math import log
 from typing import Tuple, List
 
-def generate_factorizations(C: matrix, n: int, d: int) -> Tuple[matrix, List[matrix], matrix]:
+def generate_factorizations(C: matrix, n: int, d: int) -> Tuple[ndarray, List[ndarray], ndarray]:
     """Generates the V, Vsquare, and E matrices required for a MESP problem"""
     
     _, s, V = svd(C)
@@ -174,5 +174,9 @@ def generate_schur_complement(A: matrix, n: int, selected: List[int]):
         A_selected_inv = inv(selected_val)
         return A_shrunk - A_left @ A_selected_inv @ A_right
 
-
+def is_psd(C: matrix) -> bool:
+    if not all(eigvals(C) >= 0):
+        return False
+    else:
+        return True 
 

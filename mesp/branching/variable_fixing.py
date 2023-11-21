@@ -56,6 +56,8 @@ def frankwolfelocal(V, Vsquare, E, n, d, s):
 
     return  S1, S0, fixone, fixzero, cut_gap, x, LB
 
+# ========== DEPRECATE ==========
+
 def cut_gap_fixing(V, Vsquare, E, n, d, s):
     cut_gap, v, w, x, LB = frankwolfe(V, Vsquare, E, n, d, s, varfix=True)
 
@@ -73,6 +75,8 @@ def cut_gap_fixing(V, Vsquare, E, n, d, s):
     S1 = [i for i in range(n) if xsol[i] == 1] # selected points
 
     return S1, S0, v, w, cut_gap, x, LB
+
+# ==========       ============
 
 ### output S1, S0, time
 ### S1: indices of variables fixed to be 1 

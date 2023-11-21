@@ -1,11 +1,12 @@
 import datetime
-from numpy import flatnonzero
+from typing import Tuple
+from numpy import flatnonzero, ndarray
 
 from mesp.utilities.matrix_computations import (findopt, upd_inv_add)
 from mesp.utilities.greedy import grd
 
 
-def localsearch(V, E, n, d, s, S1=[], S0=[]):  
+def localsearch(V, E, n, d, s, S1=[], S0=[]) -> Tuple[float, ndarray, float]:  
     """
     Function localsearch needs input n, d and s; outputs the objectve value,
     Inputs S1 and S0 are optional 
