@@ -3,24 +3,23 @@ from typing import Tuple, List
 import numbers
 import datetime
 
+from mesp.utilities.mesp_data import MespData
 from mesp.utilities.matrix_computations import (generate_factorizations, obj_f)
 from mesp.tree.node import IterativeNode
+from mesp.bounding.bound_chooser import BoundChooser
 
 class Tree:
 
-    def __init__(self, n: int, d: int, s: int, C: matrix, optimal_approx: float, scale_factor: float = 0.0,
+    def __init__(self, C: MespData, s: int, optimal_approx: float, bound_chooser: BoundChooser, scale_factor: float = 0.0,
                  branch_idx_constant: float = 0.5, epsilon: float = 1e-6) -> None:
         """
         Parameters
-        ----------
-        n : int
-            Number of potential sensor placements
-        d: int
-            Dimension of the covariance matrix
-        s :  int
-            The number of measurements allowed to maximize information from the covariance matrix
-        C : matrix
+        ---------- 
+        C : MespData
             The covariance matrix associated with a MESP instance
+        s : int
+            The number of measurements allowed to be selected from the candidate set to 
+            maximize the information.
         optimal_approx : float
             The best known lower bound for the DDF problem with a given n and s
         branching_idx_constant: float, optional
@@ -29,97 +28,69 @@ class Tree:
         epsilon : number, optional
             Numerical error parameter. Dictates the
         """
-
-        ### Type checks for parameters ###
-        if not isinstance(n, int):
-            raise ValueError(f"{n} is an improper \"n\" parameter for tree initialization. Please pass in an integer-valued \"n\".")
-        
-        if not isinstance(s, int):
-            raise ValueError(f"{s} is an improper \"s\" parameter for tree initialization. Please pass in an integer-valued \"s\".")
-        
-        if s >= n:
-            raise ValueError('The number of new sensors (s) must be less than the number of potential placement locations. n - s:', n - s)
-        
-        # if not isinstance(timeout, numbers.Number) or timeout < 0:
-        #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value greater than 0.") 
-        
-        if not isinstance(optimal_approx, numbers.Number):
-            raise ValueError(f"{optimal_approx} is an improper \"optimal_approx\" parameter for a tree initialization. Please pass in a numeric value.") 
-        
-        if not isinstance(branch_idx_constant, numbers.Number) or branch_idx_constant > 1 or branch_idx_constant < 0:
-            raise ValueError(f"{branch_idx_constant} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value in [0, 1].")
-        
-        ###   ####
-
-        ### Attribute Assignments ###
-        # Data Assignments # DEBUG - put only in one place?
-        self.n = n
-        self.d = d
-        self.s = s
-        self.C = C
-        V, Vsquare, E = generate_factorizations(C, n, d) 
-
-        self.z_hat = optimal_approx + scale_factor
-        self.z_lub = float('inf') # least upper bound
-        self.z_ub = float('inf') # upper bound
-        self.z_lb = optimal_approx + scale_factor - epsilon
         
         # Parameter assignments
         self.TIMEOUT = 0
         self.EPS = epsilon
 
-        # Tree properties
-        self.solved = False
-        self.verified = False # Whether the approximate optimal has been verified. corresponds to |z_ub - z_hat| < epsilon
-        self.early_termination = False
+        # Assign Node Class attributes
+        IterativeNode.branch_idx_constant = branch_idx_constant
+        IterativeNode.bound_chooser = bound_chooser
+    
+        # note the branch index and fixed_in params are ignored for root
+        # also note that the root node is the only node whose bound isn't computed
+        # when the node is created.
+        root : IterativeNode = IterativeNode(0, 1, 1, C, s, 0, False, scale_factor=scale_factor) 
+        self.open_nodes = [root]
 
-        self.open_nodes = []
+        self.z_hat = optimal_approx + scale_factor
+        self.z_lb = optimal_approx + scale_factor - epsilon
+
+        self.z_inital_bound = root.relaxed_z
+        self.z_lub = self.z_inital_bound
+        self.z_ub = self.z_inital_bound
+        self.ub_index = 1
+        self.gap = self.z_inital_bound - self.z_hat
+        self.delta_criterion = abs(self.gap) / 2
+
+        ### Framework Statistics ###
+        self.node_counter = 1
+        self.log = ""
+        self.total_time = root.solve_time # total time it takes to solve the tree
+        self.solve_times = [root.solve_time]
+        self.total_iterations = 1 
+        self.num_solved = 1 # the number of times a subproblem's bound had to be computed
         self.updated_lb_iterations = [] # iterations which corresponded to z_lb being updated
         self.dual_branched = [] # iterations which branched using the dual variables
         self.num_updates = 0
         self.optimal_node = None 
 
-        # Begin Queue and Assign Node Class attributes
-        IterativeNode.branch_idx_constant = branch_idx_constant
-
-        root = IterativeNode(0, 1, 1, C, V, Vsquare, E, s, 0, False, scale_factor=scale_factor) # note the branch index and fixed_in params are ignored for root
-        self.open_nodes.append(root)
-        self.delta_criterion = None
-
-        ### ###
-
-        ### Framework Statistics ###
-        self.z_inital_bound = None # Corresponding to bound found for root subproblem
-        self.gap = None # The gap between z_inital_bound and z_hat
-        self.node_counter = 1
-        self.log = ""
-        self.total_time = 0 # total time it takes to solve the tree
-        self.total_solve_time = 0 # total time it takes to compute the bounds
-        self.solve_times = []
-        self.total_iterations = 1
-        self.num_solved = 0 # the number of times a subproblem's bound had to be computed
+        self.solved = False
+        self.verified = False # Whether the approximate optimal has been verified. corresponds to |z_ub - z_hat| < tol (parameter passed in solve function)
+        self.early_termination = False
     
     ### End of Constructor ###
 
     ### Begin methods used for solving tree ###
 
-    def solve_tree(self, timeout: float = None):
+    def solve_tree(self, timeout: float, tol: float):
 
         if timeout != None:
             self.TIMEOUT = timeout
 
         solve_time_start = datetime.datetime.now()
 
-        while self.open_nodes:
+        while self.open_nodes and self.z_ub > self.z_lb:
+            # linear search through open nodes for global max at each iteration
+            # could cause exit of loop due to second condition <=> list could be nonempty,
+            # but optimal solution found
+            # QUESTION: incorproating tolerance
 
             iteration_start = datetime.datetime.now()
 
-            node = self.open_nodes.pop()
+            node: IterativeNode = self.open_nodes.pop()
 
-            if not node.is_solved:
-                solve_time = self.solve_node(node=node)
-                self.solve_times.append(solve_time)
-                self.total_solve_time += solve_time
+            self.solve_time.append(node.solve_time)
             
             self.evaluate_node(node, solve_time_start)
 
@@ -132,31 +103,20 @@ class Tree:
             
         self.total_time = datetime.datetime.now() - solve_time_start
         return self.evaluate_tree()
-
-
-    def solve_node(self, node: IterativeNode) -> float:
-        solve_time = node.compute_subproblem_bound()
-        if node.id == 1:
-            self.z_inital_bound = node.relaxed_z
-            self.gap = self.z_inital_bound - self.z_hat
-            self.delta_criterion = abs(self.gap) / 2
-        
-        self.num_solved += 1
-
-        return solve_time
-    
+           
     def evaluate_node(self, node: IterativeNode, runtime_start):
         
         # Will need to make parent node class 
 
         z = node.relaxed_z
-        is_integral = node.is_integral
+        is_integral = node.integral
 
         if z >= self.z_lb and is_integral:
             self.z_lb = z
             self.optimal_node = node
             self.updated_lb_iterations.append(self.total_iterations + 1)
             self.num_updates += 1
+            # ADD UPPER BOUND CHECK METHOD CALL
         
         elif z > self.z_lb and not is_integral:
             curr_time = (datetime.datetime.now() - runtime_start).total_seconds()
@@ -170,7 +130,7 @@ class Tree:
                 # DEBUG - CHECK BOUNDS
 
     def branch(self, node: IterativeNode) -> Tuple[IterativeNode, IterativeNode, bool] :
-        
+
         right_branch = None
         if node.delta_i_max > self.delta_criterion: # use dual branching strategy
             self.dual_branched.append(self.total_iterations)
@@ -190,20 +150,27 @@ class Tree:
         elif (node.s_curr == 1):
             self.enumerate_S1(node)
         else:
+            self.num_solved += 2
             self.node_counter += 1
             left_node = IterativeNode(node.id, self.node_counter, node.depth + 1, node.C_hat, node.V_hat, node.Vsquare_hat,
                                       node.E_hat, node.s_curr, branch_idx, fixed_in=False, scale_factor=node.scale_factor)
+            self.solve_times.append(left_node.solve_time)
             self.node_counter += 1
             right_node = IterativeNode(node.id, self.node_counter, node.depth + 1, node.C_hat, node.V_hat, node.Vsquare_hat,
                                       node.E_hat, node.s_curr, branch_idx, fixed_in=True, scale_factor=node.scale_factor)
+            self.solve_times.append(right_node.solve_time)
 
+        # CHECK BOUNDS - need to do something with enumeration?
+        # self.z_ub = max{LB, max_L ub(L)}
+        # pass in left or right node, not both
+        
         return left_node, right_node, right_branch
     
     def enumerate_S0(self, node: IterativeNode):
         for i in arange(node.n_curr):
             x = ones(node.n_curr)
             x[i] = 0
-            z = obj_f(x, node.Vsquare_hat) + node.scale_factor
+            z = obj_f(x, node.C.Vsquare) + node.scale_factor
             if z > self.z_lb:
                 # self.node_counter += 1 
                 self.z_lb = z
@@ -215,7 +182,7 @@ class Tree:
         for i in arange(node.n_curr):
             x = zeros(node.n_curr)
             x[i] = 1
-            z = obj_f(x, node.Vsquare_hat) + node.scale_factor
+            z = obj_f(x, node.C.Vsquare) + node.scale_factor
             if z > self.z_lb:
                 self.z_lb = z
                 self.updated_lb_iterations.append(self.total_iterations + 1)
@@ -227,6 +194,7 @@ class Tree:
             else:
                 self.left_node_first(left_node, right_node)
         elif right_branch:
+            # condition forces initial dive in tree to find a canidate soln
             if self.num_updates < 1: 
                 self.right_node_first(left_node, right_node)
             else:
@@ -264,6 +232,11 @@ class Tree:
         else:
             solved = False 
         return solved, self.z_lb, self.total_time, self.total_iterations, self.gap, self.num_updates
+    
+    def set_ub(self, candidate: IterativeNode):
+        pass
+        # if child node then
+        # if candidate.parent_id == self.ub_index
     
     ##### TREE ATTRIBUTES #####
 

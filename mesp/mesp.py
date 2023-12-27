@@ -1,83 +1,186 @@
-from math import floor
 from numpy import (matrix, ndarray, setdiff1d, where, isin, arange)
 from numpy.linalg import (matrix_rank, slogdet)
 from typing import Tuple, Callable, Union, List
 from numbers import Number
 
 from mesp.utilities.mesp_data import MespData
+from mesp.bounding.bound_chooser import BoundChooser
+from mesp.bounding.frankwolfe import frankwolfe
 from mesp.utilities.matrix_computations import (generate_factorizations, generate_schur_complement, fix_out, is_psd) 
 from mesp.approximation.localsearch import localsearch
-from mesp.branching.variable_fixing import varfix
-from mesp.tree import tree
+from mesp.branching.variable_fixing import fix_variables
+# from mesp.tree import tree
+from mesp.tree.tree import Tree # TODO: What is up with this?
 
 class Mesp:
     """
-    Assumes an instance of the problem is solved for only one s 
-    <=> cannot call solve on the same Mesp object with multiple s values
+    A Maximum Entropy Sampling Problem (MESP)
+
+    Problems are immutable in the following sense:
+    - The PSD matrix defining the Mesp object cannot be changed
+    - Once the solve function has been run on a Mesp object for some subset size, that Mesp object
+        cannot be solved (exactly *or approximately*) for a different subset size
+
+    However, before running the solve function, A Mesp object can be used to *approximately* solve the
+    MESP for more than one subset size.
+
+    Parameters
+    ----------
+    C : numpy.matrix
+        The positive semidefinite matrix which defines the MESP
     """
     
     def __init__(self, C: matrix):
         
-        self.C = MespData(C, generate_factorizations)
+        self.C = MespData(C, factorize=True)
+        self.default_chooser = BoundChooser(C, frankwolfe)
 
         ### ###
 
-        ### Problem Attributes ###
-        # self.variables_fixed = False
-        # self.successful_fix = False
-        # self.S0, self.S1 = None, None
+        self.s: int = None
+        self.succ_var_fix: bool = None
+        self.scale_factor: float = None # probability incorporate this into MespData object
 
-        self.approximate_solution = None
-        self.approximate_value = None
+        ### TODO: only keep one of these
+        self._attempted_solve: bool = False
+        self._successful_solve: bool = None
+        ###
 
-        self.solved = False
-        self.successful_solve = False
+        self._approximate_value: float = None
+        self._approximate_solution: List[int] = None
+
+        self._value = None
+        self._solution = None 
+        self._solve_time: float = None
+
+        self.solution_tree: Tree = None # use this to access tree/solving stats
     
-    def solve_approximate(self, s) -> Tuple[int, ndarray, int]:
+    @property
+    def attempted_solve(self):
         """
-        Solves the MESP approximately
+        bool : whether the solve function has been called yet
+        """
+        return self._attempted_solve
+    
+    @property
+    def successful_solve(self):
+        """
+        bool : whether the solve function terminated with an exact (solution, value) pair
+            (or None if the solve function hasn't been called yet)
+        """
+        return self._successful_solve
 
-        Corresponds to 
+    @property
+    def approximate_value(self):
+        """
+        float : the approximate value from the last time the problem was solved
+            (or None if solve has not been attempted)
+        """
+        # if self._approximate_value == None:
+        #     raise NotComputedError()
+        # else:
+        #     return self._approximate_value
+        return self._approximate_value
+    
+    @property
+    def approximate_solution(self):
+        """
+        List[int] : the approximate solution from the last time the problem was solved
+            (or None if solve has not been attempted)
+        """
+        # if self._approximate_solution == None:
+        #     raise NotComputedError()
+        # else:
+        #     return self._approximate_solution
+        return self._approximate_solution
+
+    @property
+    def value(self):
+        """
+        float : the value from the last time the problem was solved
+            (or None if not solved)
+        """
+        return self._value
+    
+    @property
+    def solution(self):
+        """
+        List[int] : the solution from the last time the problem was solved
+            (or None if solve has not been attempted)
+        """
+
+    """
+    Other Property TODO (useful for experimentation purposes):
+    - solve time
+    - presolve time (varfixing)
+    - number of variables fixed
+    """
+    
+    def approximate_solve(self, s: int) -> Tuple[float, ndarray, float]:
+        """
+        Approximately solves the MESP
+
+        Corresponds to algorithm developed in \"Best Principal Submatrix Selection for the Maximum Entropy Sampling Problem\"
+        by Li and Xie
 
         Parameters
         ----------
-        s : number of measurements to select
+        s : int, 0 < s <= min{rank C, n-1}
+            number of measurements to select
+            <=> size of the subset
 
         Returns
         -------
         z_hat : float
+            Approximate optimal value of the MESP
         x_hat : ndarray
+            Approximate solution of the MESP
         runtime : float
         """
-        return localsearch(self.V, self.E, self.n, self.d, s)
+        self.solve_checks(s)
+        return localsearch(self.C.V, self.E, self.n, self.d, s)
     
-    def fix_variables(self, s: int) -> Tuple[bool, matrix, int, int, int, float]:
-        S1, S0, _ = varfix(self.V, self.Vsquare, self.E, self.n, self.d, s)
-        if S1 == 0 and S0 == 0:
-            print("No variables could be fixed")
-            return False, None, None, None, None, None
-        else:
-            C_hat = self.C
-            n_hat = self.n
-            d_hat = self.d
-            s_hat = s
-            scale_factor = 0
-            if len(S0) > 0:
-                C_hat = fix_out(self.C, S0)
-                n_hat = n_hat - len(S0)
-                d_hat = d_hat - len(S0)
-            if len(S1) > 0:
-                remaining_indices = setdiff1d(arange(self.n), S0)
-                updated_indices = where(isin(remaining_indices, S1))[0]
-                #### Scaling ###
-                C_ff = C_hat[updated_indices][:, updated_indices]
-                scale_factor += slogdet(C_ff)[1]
-                ### ###
-                C_hat = generate_schur_complement(C_hat, n_hat, updated_indices)
-                n_hat = n_hat - len(S1)
-                s_hat = s_hat - len(S1)
-                d_hat = d_hat - len(S1)
-            return True, C_hat, n_hat, d_hat, s_hat, scale_factor
+    def solve(self, s: int, fix_vars: bool=True, timeout: float=60,
+              bound_chooser: BoundChooser=None, tol:float=1e-3) -> Tuple[bool, float]:
+        
+        self.solve_checks(s)
+        
+        self.s = s
+
+        if bound_chooser != None:
+            if isinstance(bound_chooser, BoundChooser):
+                self.default_chooser = bound_chooser
+            else:
+                raise TypeError("You provided an object as a BoundChooser argument which is not\
+                                an actual BoundChooser.")
+
+        if fix_vars:
+            self.succ_var_fix, self.C, self.s, self.scale_factor = fix_variables(s=s, C=self.C)
+        
+        self._approximate_value = self.approximate_solve(self.s)[0]
+        
+        soln_tree = Tree(self.C, self.s, self._approximate_value, self.default_chooser,
+                              scale_factor=self.scale_factor)
+        
+        self.solved, z_LB = soln_tree.solve_tree(timeout) # Add 
+
+        return self.solved, z_LB
+        
+    
+    def solve_checks(self, s: int):
+        if self._attempted_solve == True:
+            raise ValueError(f"You have already attempted to solve this tree\
+                             with s={self.s}. You cannot attempt to solve (exactly or approximately) an MESP object\
+                             more than once. An option to continue solving a problem will however\
+                                be created in future iterations of this solver.")
+        
+        if not isinstance(s, int):
+            raise ValueError(f"{s} is an improper \"s\" parameter for tree initialization. Please pass in an integer-valued \"s\".")
+        
+        if s == 0 or s > min(self.C.d, self.C.n-1):
+            raise ValueError(f"You passed in an improper values of s.\
+                             Please choose s s.t 0 < s <= min(rank C, n - 1).")
+    
     
     # def __default_bound(self) -> Callable[[ndarray, int, int, int], ]
     
@@ -101,67 +204,21 @@ class Mesp:
     #     solved, opt_val, time, iterations, gap, num_updates = milp.solve_tree()
     #     return solved, opt_val, time, iterations, gap, z_hat, num_updates
 
-
-class BoundChooser:
-
-    def __init__(self, C: matrix, default_algo: Callable[[ndarray]]) -> None:
-        self.C = MespData(C)
-        self.rule_checker(default_algo)
-        self.default_algo = default_algo
-        self.algorithm_dict = None
-
-    def rule_checker(self, bounding_algo):
-        """
-        Ensures the provided bounding algorithm can accept a MespData object and an integer
-        and that it returns either a tuple of the bound value, associated relaxed solution,
-        and runtime, or a tuple with those three ojects and the two dual arrays associated 
-        with the relaxed approximation.
-        """
-        s = arange(self.n)[floor(self.n / 2)]
-        try:
-            returned = bounding_algo(self.C, s)
-            if len(returned) != 3 or len(returned) != 5:
-                raise ValueError("The provided bounding algorithm didn't return the required number of arguments")
-            elif len(returned) == 3 or len(returned) == 5:
-                if not isinstance(returned[0], Number):
-                    raise ValueError("The first returned argument (the bound) is not a Number.")
-                if not isinstance(returned[1], List[float]):
-                    raise ValueError("The second returned argument (x) is not a list of floats.")
-                if not isinstance(returned[2], Number):
-                    raise ValueError("The third returned argument (runtime) is not a Number.")
-            if len(returned) == 5:
-                if not isinstance(returned[3], List[float]):
-                    raise ValueError("The fourth returned argument (w) is not a list of floats.")
-                if not isinstance(returned[5], List[float]):
-                    raise ValueError("The fifth returned argument (v) is not a list of floats.")
-        except:
-            raise ValueError("The provided bounding algorithm could not accept the required arguments")
-
-    def set_bound(self, s_int: Tuple[int, int], n_int: Tuple[int, int],
-                  bound_algo: Callable[
-                      ...,
-                       Union[Tuple[float, List[float], float],
-                            Tuple[float, List[float], float, List[float], List[float]]
-                       ]]) -> None:
+        ### Type checks for parameters ###
         
-        # First check if passed in bounding function meets requirements
-        self.rule_checker(bound_algo)
+        # # if not isinstance(timeout, numbers.Number) or timeout < 0:
+        # #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value greater than 0.") 
         
-        if self.algorithm_dict == None:
-            n_range = arange(3, self.C.n + 1)
-            s_range = arange(3, self.C.n - 3)
-            
-            new_bound_s = arange(s_int[0], s_int[1] + 1)
-            new_bound_n = arange(n_int[0], n_int[1] + 1)
-            
-            self.algorithm_dict = {n : {s : bound_algo if s in new_bound_s and n in new_bound_n else self.default_algo for s in s_range} for n in n_range}
+        # if not isinstance(optimal_approx, numbers.Number):
+        #     raise ValueError(f"{optimal_approx} is an improper \"optimal_approx\" parameter for a tree initialization. Please pass in a numeric value.") 
+        
+        # if not isinstance(branch_idx_constant, numbers.Number) or branch_idx_constant > 1 or branch_idx_constant < 0:
+        #     raise ValueError(f"{branch_idx_constant} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value in [0, 1].")
 
-    def get_bound(self, s: int, n: int):
-        if self.algorithm_dict == None:
-            return self.default_algo
-        else:
-            try:
-                algo = self.algorithm_dict[s][n]
-                return algo
-            except:
-                return self.default_algo
+
+class NotComputedError(Exception):
+    """Custom exception for indicating that a computation has not been performed."""
+
+    def __init__(self, message="Computation has not been performed."):
+        self.message = message
+        super().__init__(self.message)

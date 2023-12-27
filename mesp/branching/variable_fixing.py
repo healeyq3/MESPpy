@@ -1,6 +1,10 @@
 import datetime
-from numpy import (array, argsort, add)
+from numpy import (array, argsort, add, matrix, ndarray, setdiff1d, where, isin, arange)
+from numpy.linalg import slogdet
+from typing import Tuple
 
+from mesp.utilities.mesp_data import MespData
+from mesp.utilities.matrix_computations import (fix_out, generate_schur_complement)
 from mesp.bounding.frankwolfe import (frankwolfe, alter_fw)
 from mesp.approximation.localsearch import localsearch
 from mesp.utilities.grad import grad_fix
@@ -137,3 +141,62 @@ def varfix(V, Vsquare, E, n, d, s):
     time = (end-start).total_seconds()
     
     return S1, S0, time
+
+def fix_variables(s, C: MespData) -> Tuple[bool, MespData, int, float]:
+    S1, S0, _  = varfix(C.V, C.Vsquare, C.E, C.n, C.d, s)
+    if S1 == 0 and S0 == 0:
+        return False, C, s, 0
+    else:
+        C_hat = C.C
+        n_hat = C.n
+        d_hat = C.d
+        s_hat = s
+        scale_factor = 0
+        if len(S0) > 0:
+            C_hat = fix_out(C.C, S0)
+            n_hat = n_hat - len(S0)
+            d_hat = d_hat - len(S0)
+        if len(S1) > 0:
+            remaining_indices = setdiff1d(arange(self.n), S0)
+            updated_indices = where(isin(remaining_indices, S1))[0]
+            #### Scaling ###
+            C_ff = C_hat[updated_indices][:, updated_indices]
+            scale_factor += slogdet(C_ff)[1]
+            ### ###
+            C_hat = generate_schur_complement(C_hat, n_hat, updated_indices)
+            n_hat = n_hat - len(S1)
+            s_hat = s - len(S1)
+            d_hat = d_hat - len(S1)
+        C_hat = MespData(C_hat, known_psd=True, n=n_hat, d=d_hat, factorize=True)
+        return True, C_hat, s_hat, scale_factor
+    
+
+############### TO BE REMOVED #####################
+
+# def fix_variables(self, s: int) -> Tuple[bool, matrix, int, int, int, float]:
+#     S1, S0, _ = varfix(self.V, self.Vsquare, self.E, self.n, self.d, s)
+#     if S1 == 0 and S0 == 0:
+#         print("No variables could be fixed")
+#         return False, None, None, None, None, None
+#     else:
+#         C_hat = self.C
+#         n_hat = self.n
+#         d_hat = self.d
+#         s_hat = s
+#         scale_factor = 0
+#         if len(S0) > 0:
+#             C_hat = fix_out(self.C, S0)
+#             n_hat = n_hat - len(S0)
+#             d_hat = d_hat - len(S0)
+#         if len(S1) > 0:
+#             remaining_indices = setdiff1d(arange(self.n), S0)
+#             updated_indices = where(isin(remaining_indices, S1))[0]
+#             #### Scaling ###
+#             C_ff = C_hat[updated_indices][:, updated_indices]
+#             scale_factor += slogdet(C_ff)[1]
+#             ### ###
+#             C_hat = generate_schur_complement(C_hat, n_hat, updated_indices)
+#             n_hat = n_hat - len(S1)
+#             s_hat = s_hat - len(S1)
+#             d_hat = d_hat - len(S1)
+#         return True, C_hat, n_hat, d_hat, s_hat, scale_factor

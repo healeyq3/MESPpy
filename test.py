@@ -20,10 +20,14 @@ C = 100*np.matrix(C)
 
 data = MespData(C)
 
-print(data.shape)
+arr = [1, 2, 3]
 
-returned = frankwolfe(data, 20)
-# print(returned)
-print(type(returned[4]))
+print(data.C[arr][:, arr].shape)
+
+# print(data.shape)
+
+# returned = frankwolfe(data, 20)
+# # print(returned)
+# print(type(returned[4]))
 
 

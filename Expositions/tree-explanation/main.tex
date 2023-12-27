@@ -1,0 +1,46 @@
+\documentclass[12pt, reqno]{article}
+
+\usepackage{amsmath, amssymb, amsfonts, amsbsy, amsthm, latexsym, graphicx, mathrsfs}
+\usepackage{hyperref}
+\usepackage[ruled,vlined]{algorithm2e}
+
+\newcommand{\definedas}{\mathrel{\mathop:}=}
+
+\title{Notes on Tree Construction}
+\author{Quill Healey}
+
+\begin{document}
+
+\maketitle
+
+\section*{Notation}
+\noindent The \textbf{Maximum-Entropy Sampling Problem} is defined by the following mathematical program:
+
+\begin{align*}
+    z(C, s) \definedas \max \left\{ \textbf{ldet}\, C[S, S] : S \subset N, \left| S \right| = s\right\} 
+\end{align*}
+
+\begin{itemize}
+    \item $\textbf{ub} L \equiv \textbf{ub}(L)$ be the value of a selected upper-bounding method applied to $L \in \mathcal{L}$
+    \item $z^{UB} = \max \left\{  \right\}$
+\end{itemize}
+
+\begin{algorithm}[H]
+    \SetAlgoLined
+        % \KwData{Input data}
+        % \KwResult{Output result}
+        $k=0, d_0 = 1, C = 0$\;
+        \For{$k= 0, 1, 2, \ldots$}{
+          $C = C + d_k C (\alpha_k)$\\
+          $n_k = \left| D (\alpha_k) \right|$\;
+          \eIf{$n_k = 0$}{
+            \Return{$C$}\;
+          }{
+            choose $\alpha_{k + 1}$ at random from $D(\alpha_k)$\\
+            $d_{k+1} = d_kn_k$\;
+          }
+        }
+        \caption{Solve Tree}
+\end{algorithm}    
+
+\end{document}

@@ -7,6 +7,10 @@ This repository provides a declarative language for formulating, approximating, 
 - [Using this repository](#using-mesppy)
 - [More on Maximum Entropy Sampling](#maximum-entropy-sampling-more-broadly)
 
+## IMPORTANT NOTE
+As of 13:00 12/27 this repository is still in the middle of a large refactor (finals,
+grad school applications, and then the holidays have caused a bit of a delay). Consequently, it is not currently possible to construct and work with Mesp objects. My main focus is to make this repository functional again (before experimenting with features such as solution size prediction), which mainly entails finishing the global UB tracking update and finishing cleaning the Mesp object. A bit of testing to ensure the new BoundChooser's default behavior works is also required. I am aiming to have a functinal repository by end of week.
+
 ## The Maximum Entropy Sampling Problem
 We'll take four passes at explaining this problem.
 
@@ -51,7 +55,7 @@ MESPpy aims to push the boundaries of the maximum entropy sampling problem in th
     
 
 **Contributors.**
-This work was conducted under [Dr. Weijun Xie's](https://sites.google.com/site/weijunxieor/home) supervision and was contributed to by PhD candidate Yongchun Li and undergraduate student Quill Healey. Specifically, Yongchun is responsible for the approximation and bounding algorithms, which she and Dr. Xie developed in ["Best Best Principal Submatrix Selection for the Maximum Entropy Sampling Problem:
+This work was conducted under [Dr. Weijun Xie's](https://sites.google.com/site/weijunxieor/home) supervision and was contributed to by PhD candidate Yongchun Li and undergraduate student Quill Healey. Specifically, Yongchun is responsible for the approximation and bounding algorithms, which she and Dr. Xie developed in ["Best Principal Submatrix Selection for the Maximum Entropy Sampling Problem:
 Scalable Algorithms and Performance Guarantees"](https://arxiv.org/pdf/2001.08537.pdf) with the associated [codebase](https://github.com/yongchunli-13/Approximation-Algorithms-for-MESP). Quill is responsible for the creation of this declarative language driven repository, the branch and bound framework, and the related experimentation features (of course, with the guidance and help of both Dr. Xie and Yongchun). 
 
 ## Using MESPpy
@@ -103,6 +107,7 @@ Currently in the progress of a MAJOR OVERHAUL. I do not recommend experimenting 
 
 ### Solver Build-out Related
 - Use dataclasses for mesp file to only allow future users to interface with certain behavior 
+- ndarray instead of List[int]
 - Tree and Mesp statistics getters for experimentation
 - Proper experimentation folder
     - built-in excel file generation, so can run tests without fear of overwriting results. Also good to move experiments out of top-level directory.
