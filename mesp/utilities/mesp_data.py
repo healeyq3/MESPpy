@@ -8,11 +8,35 @@ class MespData:
     """
     A Data Wrapper for the positive semidefinite matrix defining the MESP.
 
+    Parameters
+    ----------
+    C : numpy.matrix
+        The positive semidefinite matrix which defines the MESP
+    known_psd : bool, optional
+        When True, the C matrix is known to be PSD and thus we can directly pass in the
+        size and rank associated withe the matrix.
+    n : int, optional
+        Size of the symmetric matrix (number of cols/rows)
+    d : int, optional
+        Rank of the matrix
+    factorize : bool, optional
+        Whether V, Vsquare, and E should be generated for the matrix C. Necessary for the 
+        default subproblem bounding algorithm; however, if a user provides their own bounding
+        algorithm then these factorizations may not be necessary (thus why generating them is
+        optional).
+    scale_factor : float, optional
+    S1 : List[int], optional
+    S0 : List[int], optional
+        
 
+    Raises
+    ------
+    ValueError if the provided C is not PSD
 
     """
     def __init__(self, C: matrix, known_psd: bool=False, n: int=None, d: int=None,
-                 factorize: bool=False):
+                 factorize: bool=False, scale_factor: float=0.0,
+                 S1: List[int]=[], S0: List[int]=[]):
         # TODO: figure out a way to update V, Vsquare, E when fixing in and out <=> Don't recompute
         if known_psd:
             self.C = C
@@ -32,7 +56,7 @@ class MespData:
         else:
             self.V, self.Vsquare, self.E = None, None, None
         
-        self.S0, self.S1 = [], []
+        self.S0, self.S1 = S0, S1
         
     def __getattr__(self, item):
         # Make MespData objects behave like typical numpy matrices

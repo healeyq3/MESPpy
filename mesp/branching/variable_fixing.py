@@ -2,6 +2,7 @@ import datetime
 from numpy import (array, argsort, add, matrix, ndarray, setdiff1d, where, isin, arange)
 from numpy.linalg import slogdet
 from typing import Tuple
+import time
 
 from mesp.utilities.mesp_data import MespData
 from mesp.utilities.matrix_computations import (fix_out, generate_schur_complement)
@@ -142,33 +143,56 @@ def varfix(V, Vsquare, E, n, d, s):
     
     return S1, S0, time
 
-def fix_variables(s, C: MespData) -> Tuple[bool, MespData, int, float]:
+def fix_variables(s: int, C: MespData) -> Tuple[bool, MespData, int, float]:
+    """
+    
+    Returns
+    -------
+    bool : whether variables were successfully fixed
+    MespData: if there are fixed variables, the corresponding new data object
+    int : if variables are fixed, the corresponding number of variables which still need to be chosen
+    float : the time it took to peform the variable fixing operation
+    """
+    start_time = time.time()
     S1, S0, _  = varfix(C.V, C.Vsquare, C.E, C.n, C.d, s)
     if S1 == 0 and S0 == 0:
-        return False, C, s, 0
+        end_time = time.time() - start_time
+        return False, C, s, end_time
     else:
         C_hat = C.C
         n_hat = C.n
         d_hat = C.d
         s_hat = s
         scale_factor = 0
+        # There are variables which can be fixed out of the problem.
         if len(S0) > 0:
             C_hat = fix_out(C.C, S0)
             n_hat = n_hat - len(S0)
             d_hat = d_hat - len(S0)
+        # There are variables which can be fixed into the problem
         if len(S1) > 0:
-            remaining_indices = setdiff1d(arange(self.n), S0)
-            updated_indices = where(isin(remaining_indices, S1))[0]
-            #### Scaling ###
-            C_ff = C_hat[updated_indices][:, updated_indices]
+            C_ff = C.C[S1][:, S1]
             scale_factor += slogdet(C_ff)[1]
-            ### ###
+            """
+            The following logic is:
+            remaining_indices = [n] \ S0
+            updated_indices contains the indices in remaining_indices
+                where the values in S1 match with the values in
+                remaining_indices
+            Example (using 1-indexing): n=9, S0 = [1, 3, 5, 8], S1 = [2, 7]
+                [n] \ S0 = [2, 4, 6, 7, 9]
+                S1_bar = [1, 4]
+            """
+            remaining_indices = setdiff1d(arange(C.n), S0)
+            updated_indices = where(isin(remaining_indices, S1))[0]
             C_hat = generate_schur_complement(C_hat, n_hat, updated_indices)
             n_hat = n_hat - len(S1)
             s_hat = s - len(S1)
             d_hat = d_hat - len(S1)
-        C_hat = MespData(C_hat, known_psd=True, n=n_hat, d=d_hat, factorize=True)
-        return True, C_hat, s_hat, scale_factor
+        C_hat = MespData(C_hat, known_psd=True, n=n_hat, d=d_hat, factorize=True,
+                         scale_factor=scale_factor, S1=S1, S0=S0)
+        end_time = time.time() - start_time
+        return True, C_hat, s_hat, end_time
     
 
 ############### TO BE REMOVED #####################

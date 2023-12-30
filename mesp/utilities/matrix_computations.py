@@ -163,6 +163,7 @@ def generate_schur_complement_iterative(A: matrix, n: int, selected: List[int]):
     return A_shrunk - A_left @ (A_selected_inv * A_right)
 
 def generate_schur_complement(A: matrix, n: int, selected: List[int]):
+    # What happens if len(selected) == 1
     remaining_indices = setdiff1d(arange(n), selected)
     A_shrunk = A[remaining_indices][:, remaining_indices]
     A_left = A[remaining_indices][:, selected]

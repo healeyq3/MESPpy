@@ -20,6 +20,7 @@ C = 100*np.matrix(C)
 
 data = MespData(C)
 
+
 arr = [1, 2, 3]
 
 print(data.C[arr][:, arr].shape)

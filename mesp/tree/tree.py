@@ -10,7 +10,7 @@ from mesp.bounding.bound_chooser import BoundChooser
 
 class Tree:
 
-    def __init__(self, C: MespData, s: int, optimal_approx: float, bound_chooser: BoundChooser, scale_factor: float = 0.0,
+    def __init__(self, C: MespData, s: int, optimal_approx: float, bound_chooser: BoundChooser,
                  branch_idx_constant: float = 0.5, epsilon: float = 1e-6) -> None:
         """
         Parameters
@@ -26,7 +26,8 @@ class Tree:
             When a subproblem needs to be branched, the chosen branching index will follow argmin|x_i - branching_idx_val| such that the index has
             not already been branched and is not binary (if branching_idx_val == 0 or 1)
         epsilon : number, optional
-            Numerical error parameter. Dictates the
+            Numerical error parameter. Dictates the drop of z_hat with the goal of requiring
+            the tree to generate an optimal solution
         """
         
         # Parameter assignments
@@ -38,18 +39,19 @@ class Tree:
         IterativeNode.bound_chooser = bound_chooser
     
         # note the branch index and fixed_in params are ignored for root
-        # also note that the root node is the only node whose bound isn't computed
-        # when the node is created.
-        root : IterativeNode = IterativeNode(0, 1, 1, C, s, 0, False, scale_factor=scale_factor) 
+        # Also note that the time it takes to bound the roote node is not 
+        # added to the tree's solution time, but instead is tracked in the
+        # MESP compilation time
+        root : IterativeNode = IterativeNode(0, 1, 1, C, s, 0, False) 
         self.open_nodes = [root]
 
-        self.z_hat = optimal_approx + scale_factor
-        self.z_lb = optimal_approx + scale_factor - epsilon
+        self.z_hat = optimal_approx + C.scale_factor
+        self.z_lb = optimal_approx + C.scale_factor - epsilon
 
         self.z_inital_bound = root.relaxed_z
         self.z_lub = self.z_inital_bound
         self.z_ub = self.z_inital_bound
-        self.ub_index = 1
+        self.ub_index = 1 # TODO: will I be using this for global UB branching strategy?
         self.gap = self.z_inital_bound - self.z_hat
         self.delta_criterion = abs(self.gap) / 2
 

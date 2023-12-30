@@ -2,6 +2,7 @@ from numpy import (matrix, ndarray, setdiff1d, where, isin, arange)
 from numpy.linalg import (matrix_rank, slogdet)
 from typing import Tuple, Callable, Union, List
 from numbers import Number
+import time
 
 from mesp.utilities.mesp_data import MespData
 from mesp.bounding.bound_chooser import BoundChooser
@@ -28,39 +29,128 @@ class Mesp:
     ----------
     C : numpy.matrix
         The positive semidefinite matrix which defines the MESP
+
+    Raises
+    ------
+    ValueError if the provided C is not PSD
     """
     
     def __init__(self, C: matrix):
         
+        init_time = time.time()
         self.C = MespData(C, factorize=True)
+        init_time = time.time() - init_time
+        
         self.default_chooser = BoundChooser(C, frankwolfe)
 
         ### ###
 
-        self.s: int = None
-        self.succ_var_fix: bool = None
-        self.scale_factor: float = None # probability incorporate this into MespData object
+        self._s: int = None
+        self._tol: float = 1e-6
 
-        ### TODO: only keep one of these
-        self._attempted_solve: bool = False
+        self._succ_var_fix: bool = None
+        self._fixed_in: List[int] = []
+        self._fixed_out: List[int] = []
+        self._var_fix_time: float = None
+
         self._successful_solve: bool = None
-        ###
 
         self._approximate_value: float = None
         self._approximate_solution: List[int] = None
 
         self._value = None
         self._solution = None 
+        self._compilation_time = init_time
         self._solve_time: float = None
 
-        self.solution_tree: Tree = None # use this to access tree/solving stats
+        self._solution_tree: Tree = None # use this to access tree/solving stats - include time_to_opt
+    
+    @property
+    def s(self):
+        """
+        int : size of the subset the MESP is being solved for
+            (or None if the solve function hasn't been called yet)
+        """
+        return self._s
+    
+    @property
+    def tol(self):
+        """
+        float : the tolerance to which one wants to verify the exact solution
+        """
+        return self._tol
+    
+    @property
+    def succ_var_fix(self):
+        """
+        bool : whether there are variables in this MESP which can be fixed in our out
+            (or None if the solve function hasn't been called yet)
+        int : the number of successfully fixed in variables 
+        int : the number of successfully fixed out variables
+        """
+        return self._succ_var_fix, len(self._fixed_in), len(self._fixed_out)
+    
+    @property
+    def fixed_in(self):
+        """
+        List[int] : variables fixed into the problem <=> variables known to be == 1
+
+        Raises
+        ------
+        NotComputedError if variable fix hasn't been computed <=> solve hasn't been called
+        """
+        if self._succ_var_fix == None:
+            raise NotComputedError()
+        else:
+            return self._fixed_in
+        
+    @property
+    def fixed_out(self):
+        """
+        List[int] : variables fixed out of the problem <=> variables known to be == 0
+
+        Raises
+        ------
+        NotComputedError if variable fix hasn't been computed <=> solve hasn't been called
+        """
+        if self._succ_var_fix == None:
+            raise NotComputedError()
+        else:
+            return self._fixed_out
+    
+    @property
+    def var_fix_time(self):
+        """
+        float : time it took to find the fixed variables
+
+        Raises
+        ------
+        NotComputedError if variable fix hasn't been computed <=> solve hasn't been called
+        """
+        if self._succ_var_fix == None:
+            raise NotComputedError()
+        else:
+            return self._var_fix_time
+    
+    @property 
+    def compilation_time(self):
+        """
+        float: time (in seconds) it took to compile the problem. This includes the time it took
+            to create the MESP data object, perform variable fixing, compute the local solution, 
+            and initialize the tree. (Note that depending on when accesses this property
+            it is possible only some of these actions have been performed)
+        """
+        return self._compilation_time
     
     @property
     def attempted_solve(self):
         """
         bool : whether the solve function has been called yet
         """
-        return self._attempted_solve
+        if self._successful_solve == None:
+            return False
+        else:
+            return True
     
     @property
     def successful_solve(self):
@@ -76,10 +166,6 @@ class Mesp:
         float : the approximate value from the last time the problem was solved
             (or None if solve has not been attempted)
         """
-        # if self._approximate_value == None:
-        #     raise NotComputedError()
-        # else:
-        #     return self._approximate_value
         return self._approximate_value
     
     @property
@@ -88,10 +174,6 @@ class Mesp:
         List[int] : the approximate solution from the last time the problem was solved
             (or None if solve has not been attempted)
         """
-        # if self._approximate_solution == None:
-        #     raise NotComputedError()
-        # else:
-        #     return self._approximate_solution
         return self._approximate_solution
 
     @property
@@ -108,13 +190,15 @@ class Mesp:
         List[int] : the solution from the last time the problem was solved
             (or None if solve has not been attempted)
         """
-
-    """
-    Other Property TODO (useful for experimentation purposes):
-    - solve time
-    - presolve time (varfixing)
-    - number of variables fixed
-    """
+        return self._solution
+    
+    @property
+    def solve_time(self):
+        """
+        float : the number of seconds it took to solve the problem
+            (or None if not solved)
+        """
+        return self._solve_time
     
     def approximate_solve(self, s: int) -> Tuple[float, ndarray, float]:
         """
@@ -136,41 +220,113 @@ class Mesp:
         x_hat : ndarray
             Approximate solution of the MESP
         runtime : float
+
+        Raises
+        ------
+        AlreadyComputedError
+            Raised if the solve function has already been called for this MESP object
+        ValueError
+            Raises if the provided s value is either not an integer or does not meet
+            MESP formulation requirements.
         """
         self.solve_checks(s)
         return localsearch(self.C.V, self.E, self.n, self.d, s)
     
     def solve(self, s: int, fix_vars: bool=True, timeout: float=60,
-              bound_chooser: BoundChooser=None, tol:float=1e-3) -> Tuple[bool, float]:
+              bound_chooser: BoundChooser=None, tol:float=1e-6) -> Tuple[bool, float]:
+        """
+        Exactly solves the MESP
+
+        The solve function constructs and then enumerates a branch and bound tree where the continuous relaxation
+        of nodes (equivalently, subproblems) in the tree are found (by default) using an efficient Frank-Wolfe algorithm
+        (the continuous relaxation )  bounded using a bound
+        found in \"Best Principal Submatrix Selection for the Maximum Entropy Sampling Problem\"
+
+        Always attempts to fathom a solution but also provides verification of opt_solution sooner
+        TODO: (In future can allow early exit)
+
+        Parameters
+        ----------
+        s : int, 0 < s <= min{rank C, n-1}
+            Number of measurements to select
+            <=> size of the subset
+        fix_vars : bool, optional
+            When True, before the B&B tree is compiled, the dual variables
+            of the continuous relaxation of the original problem will be used to (potentially) fix
+            decision variables to 1 or 0. The original problem will then be shrunk according
+            to fixing these variables in or out before being . Defaults to True.
+        timeout : float, optional
+            How many minutes the B&B tree will be allowed to add new nodes to its open queue. 
+            After the timeout, the nodes in the queue will be evaluated without 
+            Pass in 0 if you do not wish for there to be a timeout.
+        bound_chooser: BoundChooser, optional
+            How the upper bounds are found for each subproblem in the tree
+        tol : float, optional
+
+        Returns
+        -------
+        str
+            The outcome of running the solve function. There are three possibilities:
+            1. "Exact Solution Fathomed" means that the B&B Tree was fully enumerated
+                as to generate an optimal solution value pair (x^*, z^*).
+            2. "Optimal Value Found" means that the solve function timed-out before the
+                B&B Tree had fathomed an optimal solution value pair, BUT the tree's global
+                upper bound was within a specified tolerance of the approximate solution,
+                thus the pair (x_hat, z_hat) can be thought of as an exact solution.
+            3. "Terminated Too Early" means that the solve function timed-out before the 
+                B&B Tree had fathomed (x^*, z^*) AND before the tree verified
+                |z_ub - z_hat| <= tol => z_hat ~ z^*.
+        float
+            The found "entropy" value associated with the above three outcomes: 
+            1. z^*
+            2. z_UB ~ z^*
+            3. z_UB > z^*
+        float
+            runtime (in seconds)
+
+        Raises
+        ------
+        AlreadyComputedError
+            Raised if the solve function has already been called for this MESP object
+        ValueError
+            Raised if the provided s value is either not an integer or does not meet
+            MESP formulation requirements.
+        TypeError
+            Raised if a provided bound_chooser is not actually of class BoundChooser
+
+        """
         
-        self.solve_checks(s)
+        self._solve_checks(s)
+
+        self._param_checks(timeout, bound_chooser, tol)
         
         self.s = s
 
         if bound_chooser != None:
-            if isinstance(bound_chooser, BoundChooser):
-                self.default_chooser = bound_chooser
-            else:
-                raise TypeError("You provided an object as a BoundChooser argument which is not\
-                                an actual BoundChooser.")
+            self.default_chooser = bound_chooser
 
         if fix_vars:
-            self.succ_var_fix, self.C, self.s, self.scale_factor = fix_variables(s=s, C=self.C)
+            self._succ_var_fix, self.C, self.s, self._var_fix_time = fix_variables(s=s, C=self.C)
+            self._compilation_time += self._var_fix_time
+            self._fixed_in = self.C.S1
+            self._fixed_out = self.C.S0
         
-        self._approximate_value = self.approximate_solve(self.s)[0]
+        self._approximate_value, _, approximate_solve_time = self.approximate_solve(self.s)
+        self._compilation_time += approximate_solve_time
         
-        soln_tree = Tree(self.C, self.s, self._approximate_value, self.default_chooser,
-                              scale_factor=self.scale_factor)
+        tree_comp_time_start = time.time()
+        soln_tree = Tree(self.C, self.s, self._approximate_value, self.default_chooser)
+        self._compilation_time += time.time() - tree_comp_time_start
         
-        self.solved, z_LB = soln_tree.solve_tree(timeout) # Add 
+        self.solved, z_LB, solve_time = soln_tree.solve_tree(timeout) # Add 
 
         return self.solved, z_LB
         
     
-    def solve_checks(self, s: int):
+    def _solve_checks(self, s: int):
         if self._attempted_solve == True:
-            raise ValueError(f"You have already attempted to solve this tree\
-                             with s={self.s}. You cannot attempt to solve (exactly or approximately) an MESP object\
+            raise AlreadyComputedError(f"You have already attempted to solve this tree\
+                             with s={self.s}. You cannot attempt to exactly or approximately solve an MESP object\
                              more than once. An option to continue solving a problem will however\
                                 be created in future iterations of this solver.")
         
@@ -178,42 +334,26 @@ class Mesp:
             raise ValueError(f"{s} is an improper \"s\" parameter for tree initialization. Please pass in an integer-valued \"s\".")
         
         if s == 0 or s > min(self.C.d, self.C.n-1):
-            raise ValueError(f"You passed in an improper values of s.\
-                             Please choose s s.t 0 < s <= min(rank C, n - 1).")
-    
-    
-    # def __default_bound(self) -> Callable[[ndarray, int, int, int], ]
-    
-    # def solve(self, s: int, fix_vars: bool = True, timeout: float=60,
-    #           choose_bound: BoundChooser=None):
+            raise ValueError("You passed in an improper values of s.\
+                             Please choose s subject to 0 < s <= min(rank C, n - 1).")
         
-    #     # Add check to see if already attempted to solve.
-    #     self.s = s
-    #     scale_factor = 0
-    #     if fix_vars:
-    #         succ_fix, C_hat, n_hat, d_hat, s_hat, scale = self.fix_variables(s)
-    #         if succ_fix:
-    #             self.n = n_hat
-    #             self.d = d_hat
-    #             self.s = s_hat
-    #             self.C = C_hat
-    #             self.V, self.Vsquare, self.E = generate_factorizations(self.C, self.n, self.d)
-    #             scale_factor += scale
-    #     z_hat = self.solve_approximate(self.s)[0]
-    #     milp = tree.Tree(self.n, self.d, self.s, self.C, z_hat, scale_factor=scale_factor)
-    #     solved, opt_val, time, iterations, gap, num_updates = milp.solve_tree()
-    #     return solved, opt_val, time, iterations, gap, z_hat, num_updates
+    def _param_checks(self, timeout: float, bound_chooser: BoundChooser, tol: float):
+        if not isinstance(timeout, Number) or timeout < 0:
+            raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization.\
+                             Please pass in a numeric value greater than 0.")
+        
+        if bound_chooser != None and not isinstance(bound_chooser, BoundChooser):
+                raise TypeError("You provided an object as a BoundChooser argument which is not\
+                                an actual BoundChooser.")
+        
+        if not isinstance(tol, Number) or tol < 0:
+            raise ValueError(f"{tol} is an improper \"tol\" parameter for a tree initialization.\
+                             Please pass in a numeric value greater than 0.")
+        
+        if tol > 1e-1:
+            print("NOTE TO USER: Your chosen tolerance is very large!\
+                  Be sure that this is what you want!")
 
-        ### Type checks for parameters ###
-        
-        # # if not isinstance(timeout, numbers.Number) or timeout < 0:
-        # #     raise ValueError(f"{timeout} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value greater than 0.") 
-        
-        # if not isinstance(optimal_approx, numbers.Number):
-        #     raise ValueError(f"{optimal_approx} is an improper \"optimal_approx\" parameter for a tree initialization. Please pass in a numeric value.") 
-        
-        # if not isinstance(branch_idx_constant, numbers.Number) or branch_idx_constant > 1 or branch_idx_constant < 0:
-        #     raise ValueError(f"{branch_idx_constant} is an improper \"timeout\" parameter for a tree initialization. Please pass in a numeric value in [0, 1].")
 
 
 class NotComputedError(Exception):
@@ -221,4 +361,11 @@ class NotComputedError(Exception):
 
     def __init__(self, message="Computation has not been performed."):
         self.message = message
+        super().__init__(self.message)
+
+class AlreadyComputedError(Exception):
+    """Custom exception for indicating that a computation has ALREADY been performed."""
+
+    def __init__(self, message="Computation has already been performed. Recalls are not yet supported."):
+        self.message=message
         super().__init__(self.message)

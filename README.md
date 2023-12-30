@@ -8,8 +8,12 @@ This repository provides a declarative language for formulating, approximating, 
 - [More on Maximum Entropy Sampling](#maximum-entropy-sampling-more-broadly)
 
 ## IMPORTANT NOTE
-As of 13:00 12/27 this repository is still in the middle of a large refactor (finals,
-grad school applications, and then the holidays have caused a bit of a delay). Consequently, it is not currently possible to construct and work with Mesp objects. My main focus is to make this repository functional again (before experimenting with features such as solution size prediction), which mainly entails finishing the global UB tracking update and finishing cleaning the Mesp object. A bit of testing to ensure the new BoundChooser's default behavior works is also required. I am aiming to have a functinal repository by end of week.
+As of 14:20 12/30 this repository is still in the middle of a large refactor (finals,
+grad school applications, and then the holidays have caused a bit of a delay). Specifically, I still need to:
+* ensure that the new BoundChooser has not caused any errors
+* Need to implement the global UB tracker (in an efficient manner) and finish updating the Tree and Node classes. The Mesp and variable_fixing files should be more or less finished for this current repo iteration.
+
+Furthermore, please note that the Mesp solve function is not going to work properly right now, and I do still need to ensure the updates I've made to the Mesp class have not broken anything. I am aiming to have a functinal repository by end of week (so by start of the New Year).
 
 ## The Maximum Entropy Sampling Problem
 We'll take four passes at explaining this problem.
@@ -88,7 +92,7 @@ Scalable Algorithms and Performance Guarantees"](https://arxiv.org/pdf/2001.0853
 
 ## Repository Status
 
-Updated 11/20/23
+Updated 12/29/23
 
 Currently in the progress of a MAJOR OVERHAUL. I do not recommend experimenting with this repository right now.
 
@@ -97,21 +101,25 @@ Currently in the progress of a MAJOR OVERHAUL. I do not recommend experimenting 
 
 ### Performance (Research) Related
 - **IMPORTANT** Switch to the global UB strategy proposed in MESP book (high hopes for this)
-- Finish creating the ```BoundChooser``` class, including updating where the node class calls the solver
-- Finish creating the three types of nodes (NonShrinkingNode, IterativeNode, BatchNode), but focus on the first two
+- **IMPORTANT** Implement complementary formulation and then use it for s >= floor(n/2)
+- Look through Yongchun's paper again and code again. Could switching to Julia and utilizing AutoDiff speed up bounding computations? 
+- Node prediction functions (monte carlo techniques)
+- Approximate Tree: prune nodes which fall within the tolerance range
+
+### Solver Build-out Related
 - More solver attribute/statistic tracking
     - "time to opt" statistic (once the worst upper bound is within $\varepsilon$)
     - if termination early, be able to enumerate remainder of open nodes and determine how close your upper bound is
     - count the enumeration of nodes performed, but be sure to differentiate between that number and number of nodes actually solved
     - break up what solve is returning and instead have getters (see dataclasses below)
-
-### Solver Build-out Related
+- Get rid of redundant local instances of frank-wolfe algo
 - Use dataclasses for mesp file to only allow future users to interface with certain behavior 
 - ndarray instead of List[int]
 - Tree and Mesp statistics getters for experimentation
 - Proper experimentation folder
     - built-in excel file generation, so can run tests without fear of overwriting results. Also good to move experiments out of top-level directory.
 - More type checks to help with the ease of using MESPpy as a declarative language
+- Switch from numpy.matrix to numpy.ndarray (this requires changing functions). Eventually necessary to do this since according to numpy's documentation apparently the matrix class may be removed in the future.
 - Good code hygiene
     - type hints
     - refactor functions - break up more?
