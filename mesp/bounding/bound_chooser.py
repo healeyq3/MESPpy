@@ -8,13 +8,9 @@ from mesp.utilities.mesp_data import MespData
 
 class BoundChooser:
 
-    def __init__(self, C: matrix, default_algo: Callable[
-                      ...,
-                       Union[Tuple[float, List[float], float],
-                            Tuple[float, List[float], float, List[float], List[float]]
-                       ]]) -> None:
+    def __init__(self, C: matrix, default_algo):
         self.C : MespData = MespData(C)
-        self.rule_checker(default_algo)
+        # self.rule_checker(default_algo)
         self.default_algo = default_algo
         self.algorithm_dict = None
 
@@ -27,7 +23,7 @@ class BoundChooser:
         """
         s = floor(self.C.n / 2)
         try:
-            returned = bounding_algo(self.C, s)
+            # returned = bounding_algo(self.C, s)
             if len(returned) != 3 or len(returned) != 5:
                 raise ValueError("The provided bounding algorithm didn't return the required number of arguments")
             elif len(returned) == 3 or len(returned) == 5:

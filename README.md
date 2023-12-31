@@ -8,12 +8,19 @@ This repository provides a declarative language for formulating, approximating, 
 - [More on Maximum Entropy Sampling](#maximum-entropy-sampling-more-broadly)
 
 ## IMPORTANT NOTE
-As of 14:20 12/30 this repository is still in the middle of a large refactor (finals,
-grad school applications, and then the holidays have caused a bit of a delay). Specifically, I still need to:
-* ensure that the new BoundChooser has not caused any errors
-* Need to implement the global UB tracker (in an efficient manner) and finish updating the Tree and Node classes. The Mesp and variable_fixing files should be more or less finished for this current repo iteration.
+As of ~ 1:00 12/31 this repository has been restored to a functional (at least semi-functional <- I haven't done rigorous testing yet) state. Please see the "test_12-30.py" file for an updated example 
+on how to interact with the Mesp class. Furthermore, here are a few notes 
+* Since the refactor I've only tested s=3, s=5, and s=10. I'd suggest testing instances under s <= 30 since I need to use the complementary formulation of the problem in order for the larger instances to possess the proper symmetry (in runtime).
+* My effort to keep track of a global ub seem to have been in vain. I need to do some further experimentation, but it appears that enumerating in a DFS fashion 
+makes this feature irrelevant (compare Kurt paper to book)
+* This new implementation is slightly slower (for s=10 at least) than what I've previously been able to achieve. Could have something to do with now keeping track of the actual solution (not just optimal value). 
+* I need to utilize more of the statistics I'm now generating to better understand
+the optimality behavior.
 
-Furthermore, please note that the Mesp solve function is not going to work properly right now, and I do still need to ensure the updates I've made to the Mesp class have not broken anything. I am aiming to have a functinal repository by end of week (so by start of the New Year).
+The next 6 days or so probably will not see many updates to the repository, although, I do need to organize my notes/ideas for next steps (see below).
+
+Also note that if you wish to experiment with this repo, it's best to run "python test_12-30.py" in a terminal window of medium to large size so that the runtime output displays properly.
+
 
 ## The Maximum Entropy Sampling Problem
 We'll take four passes at explaining this problem.
@@ -92,9 +99,20 @@ Scalable Algorithms and Performance Guarantees"](https://arxiv.org/pdf/2001.0853
 
 ## Repository Status
 
-Updated 12/29/23
+Updated 12/31/23
 
-Currently in the progress of a MAJOR OVERHAUL. I do not recommend experimenting with this repository right now.
+Need to read through, clarify, and cement the below.
+
+bullets from above:
+* update Frank Wolfe algorithms: unecessary varfix code
+* Need to implement the global UB tracker (in an efficient manner) and finish updating the Tree and Node classes. The Mesp and variable_fixing files should be more or less finished for this current repo iteration.
+* Still need to finish comments/pydocs
+* Add type and return hints to properties
+* Bound Chooser type checks are certainly screwed up => BoundChooser itself needs work
+* Make sure all computations are happening with numpy.ndarrays - NOT PYTHON LISTS
+* Explanations for subproblem shrinking, enumeration, branching strategies
+* Make sure that the known decision variables are forced to an int (so don't have 1.0000001 or
+    something of that nature)
 
 ## Todos
 > Not relevant to anyone but me (Quill) - this is just a convenient place to house different ideas and next steps for this research.

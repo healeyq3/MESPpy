@@ -142,7 +142,7 @@ def findopt(V: matrix, E: matrix, X, Xs, i, indexN,n,val):
     return Y, Ys, opti, val
 
 def fix_out(C: matrix, S0: List[int]):
-    n = C.shape[0]
+    n = C.shape[0] # can just pass in the n - more efficient
     remaining_indices = setdiff1d(arange(n), S0)
     return C[remaining_indices][:, remaining_indices]
 

@@ -1,5 +1,5 @@
 from typing import List
-from numpy import (matrix, setdiff1d, arange, argmax, concatenate)
+from numpy import (matrix, setdiff1d, arange, argmax, concatenate, array, ndarray)
 from numpy.linalg import slogdet
 
 from mesp.utilities.mesp_data import MespData
@@ -7,11 +7,12 @@ from mesp.utilities.matrix_computations import (generate_factorizations, generat
 from mesp.bounding.bound_chooser import BoundChooser
     
 class IterativeNode:
-
-    # What can be abstracted to a super node class? Then have iterative node and non-shrinking node
-    # > ids, depth
-    # > branch_idx_constant and bound chooser can also be super node class attributes
-    # > all functions
+    """
+    Notes
+    -----
+    The relaxed value associated with a node DOES include the scale_factor
+    
+    """
 
     branch_idx_constant = None # used for default branching
     bound_chooser: BoundChooser = None
@@ -25,17 +26,19 @@ class IterativeNode:
 
         if not fixed_in and id != 1:
             C_hat = fix_out(C.C, [branch_idx])
-            self.C = MespData(C_hat, known_psd=True, n=C.n-1, d=C.d-1, factorize=True)
+            self.C = MespData(C_hat, known_psd=True, n=C.n-1, d=C.d-1, factorize=True,
+                              scale_factor=C.scale_factor)
             self.C.append_S0(branch_idx)
             self.s = s
         
         elif fixed_in and id != 1:
             C_hat = generate_schur_complement_iterative(C.C, C.n, [branch_idx])
-            C_orig = self.C.C
-            self.C = MespData(C_hat, known_psd=True, n=C.n-1, d=C.d-1, factorize=True)
+            # C_orig = C.C
+            C_ff = C.C[branch_idx][:, branch_idx]
+            scale_factor = slogdet(C_ff)[1]
+            self.C = MespData(C_hat, known_psd=True, n=C.n-1, d=C.d-1, factorize=True,
+                              scale_factor=C.scale_factor + scale_factor)
             self.C.append_S1(branch_idx)
-            C_ff = C_orig[branch_idx][:, branch_idx]
-            self.scale_factor = scale_factor + slogdet(C_ff)[1]
             self.s = s - 1
         
         else: # root node
@@ -45,7 +48,6 @@ class IterativeNode:
         self.solve_time = self.compute_bound()
         self.integral = self.is_integral()
         
-        self.backup_branch_idx = None
         self.i_max = None
         self.delta_i_max = None
         self.w_branch = None
@@ -55,10 +57,10 @@ class IterativeNode:
         bound_algorithm = IterativeNode.bound_chooser.get_bound(self.s)
         bound_object = bound_algorithm(self.C, self.s)
 
-        self.relaxed_z = self.scale_factor + bound_object[0]
-        self.relaxed_x = bound_object[1]
+        self.relaxed_z = self.C.scale_factor + bound_object[0]
+        self.relaxed_x: ndarray = array(bound_object[1])
         
-        if len(bound_object == 5):
+        if len(bound_object) == 5:
             self.w = bound_object[3]
             self.v = bound_object[4]
         else:
@@ -76,7 +78,6 @@ class IterativeNode:
         branched on.
         Note - can stop for-loop after seeing s nonzero values
         """
-        
         is_integral = True
         min_dist = 1
         

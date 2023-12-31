@@ -28,8 +28,13 @@
 
 \begin{algorithm}[H]
     \SetAlgoLined
-        % \KwData{Input data}
+        \KwData{\textbf{given} approximate optimal value
+          $\hat{z}$;
+          solution tolerance, \textbf{tol} $\in \mathbf{R}$,
+          timeout $\in \mathbf{R}$
+        }
         % \KwResult{Output result}
+        $z^{LB} = \hat{z} - \text{tol}$;
         $k=0, d_0 = 1, C = 0$\;
         \For{$k= 0, 1, 2, \ldots$}{
           $C = C + d_k C (\alpha_k)$\\

@@ -19,7 +19,8 @@ def localsearch(V, E, n, d, s, S1=[], S0=[]) -> Tuple[float, ndarray, float]:
     start = datetime.datetime.now()
     
     ## greedy algorithm
-    bestf, bestx, X, Xs, gtime = grd(V, E, n, d, s, S1, S0)
+    # bestf, bestx, X, Xs, gtime = grd(V, E, n, d, s, S1, S0)
+    bestf, bestx, X, Xs, gtime = grd(V, E, n, d, s)
     # print("The running time of Greedy algorithm = ", gtime)
     #print('The current objective value is:', bestf) # the objective value
     

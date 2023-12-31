@@ -1,4 +1,4 @@
-from numpy import (matrix)
+from numpy import (matrix, setdiff1d, arange)
 from numpy.linalg import (matrix_rank)
 from typing import List
 
@@ -54,8 +54,10 @@ class MespData:
         if factorize:
             self.set_factorizations()
         else:
-            self.V, self.Vsquare, self.E = None, None, None
+            # self.V, self.Vsquare, self.E = None, None, None
+            self.set_factorizations() # TODO: update this. necessary for efficiency if other bounds are used which don't require factorizations
         
+        self.scale_factor = scale_factor
         self.S0, self.S1 = S0, S1
         
     def __getattr__(self, item):
@@ -69,10 +71,24 @@ class MespData:
     def set_factorizations(self):
         self.V, self.Vsquare, self.E = generate_factorizations(self.C, self.n, self.d)
 
-    # TODO: do I need these if I'm only going to do iterative computations?
-        # => Need for generating solution vector?
     def append_S0(self, idx: int):
-        self.S0.append(idx)
+        # print("idx: ", idx) # DEBUG
+        absolute_idx = self.find_absolute_index(idx)
+        self.S0.append(absolute_idx)
     
     def append_S1(self, idx: int):
-        self.S1.append(idx)
+        # print("idx: ", idx) # DEBUG
+        absolute_idx = self.find_absolute_index(idx)
+        self.S1.append(absolute_idx)
+    
+    def find_absolute_index(self, idx):
+        # Move function somewhere else?
+        removed_indices = self.S1 + self.S0
+        n = self.n + len(self.S0) + len(self.S1) + 1 # plus 1 is to account for branch_idx
+        # print("n: ", n) # DEBUG
+        remaining_indices = setdiff1d(arange(n), removed_indices)
+        # print("remaining_indices", remaining_indices) # DEBUG
+        return remaining_indices[idx]
+    
+    # To reconstruct solution
+    # create x_hat = n \ S1 \ S0 and then select x_hat[branch_idx]
